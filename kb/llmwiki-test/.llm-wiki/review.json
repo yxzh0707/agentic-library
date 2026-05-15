@@ -1,0 +1,56 @@
+[
+  {
+    "type": "missing-page",
+    "title": "腾讯公司页面已创建，但需补充更多细节",
+    "description": "腾讯公司页面已创建，但可能需要补充更多关于其在推荐系统领域的具体贡献和项目细节。建议进一步搜索腾讯在推荐系统和广告技术方面的公开资料。",
+    "sourcePath": "/Users/apple/Documents/llmwiki/test/raw/sources/1376ab28-5674-4c19-82f2-a4401e75b0b2.md",
+    "affectedPages": [
+      "wiki/entities/tencent.md"
+    ],
+    "searchQueries": [
+      "腾讯 推荐系统 广告技术",
+      "腾讯 DeepContextNet 模型",
+      "腾讯 广告赛题 基线模型"
+    ],
+    "options": [
+      {
+        "label": "Create Page",
+        "action": "Create Page"
+      },
+      {
+        "label": "Skip",
+        "action": "Skip"
+      }
+    ],
+    "id": "review-1",
+    "resolved": false,
+    "createdAt": 1777461831470
+  },
+  {
+    "type": "missing-page",
+    "title": "HSTU 改进机会：S/NS 参数区分",
+    "description": "源文档指出 HSTU 缺乏显式 S/NS 参数区分，这可能是一个重要的创新点。建议创建一个专门页面讨论如何将 OneTrans 的 S/NS 参数规则应用到 HSTU，作为“统一主干架构”的创新点。",
+    "sourcePath": "/Users/apple/Documents/llmwiki/test/raw/sources/a1222571-c9e3-4b27-b630-c00090560127.md",
+    "affectedPages": [
+      "wiki/concepts/hstu-improvement-opportunities.md"
+    ],
+    "searchQueries": [
+      "HSTU S/NS parameter distinction",
+      "OneTrans S/NS shared exclusive parameters",
+      "unified backbone architecture innovation"
+    ],
+    "options": [
+      {
+        "label": "Create Page",
+        "action": "Create Page"
+      },
+      {
+        "label": "Skip",
+        "action": "Skip"
+      }
+    ],
+    "id": "review-2",
+    "resolved": false,
+    "createdAt": 1777462354971
+  }
+]

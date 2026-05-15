@@ -1,0 +1,180 @@
+[
+  {
+    "id": "1",
+    "role": "user",
+    "content": "在么",
+    "timestamp": 1777460744252,
+    "conversationId": "conv_1777460744252_2ljo11"
+  },
+  {
+    "id": "2",
+    "role": "assistant",
+    "content": "Error: HTTP 401: Unauthorized — {\n    \"error\": {\n        \"message\": \"You didn't provide an API key. You need to provide your API key in an Authorization header using Bearer auth (i.e. Authorization: Bearer YOUR_KEY), or as the password field (with blank username) if you're accessing the API from your browser and are prompted for a username and password. You can obtain an API key from https://platform.openai.com/account/api-keys.\",\n        \"type\": \"invalid_request_error\",\n        \"param\": null,\n        \"code\": null\n    }\n}\n",
+    "timestamp": 1777460745849,
+    "conversationId": "conv_1777460744252_2ljo11"
+  },
+  {
+    "id": "3",
+    "role": "user",
+    "content": "在么",
+    "timestamp": 1777460828838,
+    "conversationId": "conv_1777460744252_2ljo11"
+  },
+  {
+    "id": "4",
+    "role": "assistant",
+    "content": "根据提供的 wiki 页面 [1]，其中没有包含关于“在么”或任何其他具体问题的信息。该页面仅提供了项目概述，但未涉及具体实体、概念或查询的详细内容。\n\n因此，基于当前提供的 wiki 内容，我无法回答您的问题。\n\n<!-- cited: 1 -->",
+    "timestamp": 1777460831738,
+    "conversationId": "conv_1777460744252_2ljo11",
+    "references": [
+      {
+        "title": "Overview",
+        "path": "wiki/overview.md"
+      }
+    ]
+  },
+  {
+    "id": "5",
+    "role": "user",
+    "content": "我需要把文件都放在哪个文件夹里",
+    "timestamp": 1777460877696,
+    "conversationId": "conv_1777460744252_2ljo11"
+  },
+  {
+    "id": "6",
+    "role": "assistant",
+    "content": "根据提供的 wiki 页面 [1]，其中没有包含关于文件存放位置的具体信息。该页面仅提供了项目概述，但未涉及文件管理或目录结构的详细内容。\n\n因此，基于当前提供的 wiki 内容，我无法回答您的问题。\n\n<!-- cited: 1 -->",
+    "timestamp": 1777460880599,
+    "conversationId": "conv_1777460744252_2ljo11",
+    "references": [
+      {
+        "title": "Overview",
+        "path": "wiki/overview.md"
+      }
+    ]
+  },
+  {
+    "id": "7",
+    "role": "user",
+    "content": "你是谁",
+    "timestamp": 1777461061995,
+    "conversationId": "conv_1777460744252_2ljo11"
+  },
+  {
+    "id": "8",
+    "role": "assistant",
+    "content": "根据提供的 wiki 页面 [1]，其中没有包含关于“你是谁”或任何其他具体问题的信息。该页面仅提供了项目概述，但未涉及实体或角色的详细内容。\n\n因此，基于当前提供的 wiki 内容，我无法回答您的问题。\n\n<!-- cited: 1 -->",
+    "timestamp": 1777461064342,
+    "conversationId": "conv_1777460744252_2ljo11",
+    "references": [
+      {
+        "title": "Overview",
+        "path": "wiki/overview.md"
+      }
+    ]
+  },
+  {
+    "id": "9",
+    "role": "user",
+    "content": "帮我把cosoul项目相关文件删除",
+    "timestamp": 1777461674663,
+    "conversationId": "conv_1777460744252_2ljo11"
+  },
+  {
+    "id": "10",
+    "role": "assistant",
+    "content": "根据提供的 wiki 页面，其中没有包含关于删除文件或文件管理操作的具体信息。所有页面均聚焦于推荐系统模型架构、赛题分析和概念定义，未涉及文件系统操作或项目文件管理。\n\n因此，基于当前提供的 wiki 内容，我无法协助您删除 Cosoul 项目相关文件。\n\n<!-- cited: 1, 11, 13 -->",
+    "timestamp": 1777461678196,
+    "conversationId": "conv_1777460744252_2ljo11",
+    "references": [
+      {
+        "title": "Cosoul 项目簇综合分析",
+        "path": "wiki/sources/08c3ab25-9bea-4c51-8817-52c9cb4fc485.md"
+      },
+      {
+        "title": "Source: 0e4b250c-82a2-4493-90bd-47cd6ab29641.md",
+        "path": "wiki/sources/0e4b250c-82a2-4493-90bd-47cd6ab29641.md"
+      },
+      {
+        "title": "Source: 028d6b10-842d-476e-9aff-75190494b89c.md",
+        "path": "wiki/sources/028d6b10-842d-476e-9aff-75190494b89c.md"
+      },
+      {
+        "title": "延迟工程线 — 赛题的隐藏 boss",
+        "path": "wiki/sources/1b107b65-6907-4582-9c32-ee7602af40d5.md"
+      },
+      {
+        "title": "Causal Attention",
+        "path": "wiki/concepts/causal-attention.md"
+      },
+      {
+        "title": "TAAC2026 建模挑战",
+        "path": "wiki/concepts/taac2026-modeling-challenges.md"
+      },
+      {
+        "title": "腾讯广告赛题 DeepContextNet 基线模型拆解",
+        "path": "wiki/sources/2d6c46a6-ec1b-468e-b475-ca64e91e0768.md"
+      },
+      {
+        "title": "OneTrans — 当前最贴赛题主旨的统一架构（字节，WWW 2026）",
+        "path": "wiki/sources/1feccbed-9fc3-4e6f-af7e-504fc0f79644.md"
+      },
+      {
+        "title": "TAAC2026 赛题 Framing 分析",
+        "path": "wiki/entities/taac2026-framing-analysis.md"
+      },
+      {
+        "title": "Scaling Law 实验",
+        "path": "wiki/concepts/scaling-law-实验.md"
+      },
+      {
+        "title": "Wiki Index",
+        "path": "wiki/index.md"
+      },
+      {
+        "title": "TAAC2026 / KDD Cup 2026 推荐系统赛题",
+        "path": "wiki/entities/taac2026-kdd-cup-2026.md"
+      },
+      {
+        "title": "Project Overview",
+        "path": "wiki/overview.md"
+      },
+      {
+        "title": "HSTU 模型架构",
+        "path": "wiki/entities/hstu.md"
+      },
+      {
+        "title": "TAAC2026 数据格式",
+        "path": "wiki/entities/taac2026-data-format.md"
+      },
+      {
+        "title": "字节跳动",
+        "path": "wiki/entities/bytedance.md"
+      },
+      {
+        "title": "HuggingFace Parquet",
+        "path": "wiki/entities/huggingface-parquet.md"
+      },
+      {
+        "title": "同构 token 化",
+        "path": "wiki/concepts/同构-token化.md"
+      },
+      {
+        "title": "延迟可控的 scaling",
+        "path": "wiki/concepts/延迟可控的scaling.md"
+      },
+      {
+        "title": "CLS 集成",
+        "path": "wiki/concepts/cls-集成.md"
+      },
+      {
+        "title": "序列合成",
+        "path": "wiki/concepts/序列合成.md"
+      },
+      {
+        "title": "交叉请求 KV 缓存",
+        "path": "wiki/concepts/交叉请求KV缓存.md"
+      }
+    ]
+  }
+]

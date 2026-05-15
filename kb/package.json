@@ -1,0 +1,24 @@
+{
+  "name": "knowledge-base",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local-first, agent-oriented, self-organizing knowledge base",
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
+    "lint": "pnpm -r run lint",
+    "smoke": "tsx scripts/smoke.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.2",
+    "tsx": "^4.19.1",
+    "@types/node": "^20.16.10",
+    "prettier": "^3.3.3",
+    "eslint": "^9.11.1",
+    "@typescript-eslint/parser": "^8.7.0",
+    "@typescript-eslint/eslint-plugin": "^8.7.0"
+  }
+}

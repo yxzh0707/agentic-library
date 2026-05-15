@@ -1,0 +1,275 @@
+{
+  "entries": {
+    "003a7684-bc68-423c-b1e1-dba5b579b820.md": {
+      "hash": "635ae96b2cdb7abb1eee12df5f8af9de21c3c89276fff323d842f5bc1c8cad8a",
+      "timestamp": 1777461192940,
+      "filesWritten": [
+        "wiki/sources/003a7684-bc68-423c-b1e1-dba5b579b820.md",
+        "wiki/entities/taac2026-kdd-cup-2026.md",
+        "wiki/concepts/统一主干架构.md",
+        "wiki/concepts/序列与非序列特征同构处理.md",
+        "wiki/concepts/双轨建模瓶颈.md",
+        "wiki/entities/one-trans.md",
+        "wiki/entities/hstu.md",
+        "wiki/entities/mtgr.md",
+        "wiki/concepts/异构-transformer.md",
+        "wiki/concepts/sample-level-token.md",
+        "wiki/concepts/延迟优化.md",
+        "wiki/concepts/scaling-law-实验.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "0e4b250c-82a2-4493-90bd-47cd6ab29641.md": {
+      "hash": "0a63981c3fbb095eae9d3e7d9aadfb7af3ac26879eb41625b2eacb2c4f421be1",
+      "timestamp": 1777461240278,
+      "filesWritten": [
+        "wiki/sources/0e4b250c-82a2-4493-90bd-47cd6ab29641.md"
+      ]
+    },
+    "1b107b65-6907-4582-9c32-ee7602af40d5.md": {
+      "hash": "56693ce679ec1f2e641e75f79fc4164d041bc08df528f8ef2c79a8795cf2c027",
+      "timestamp": 1777461281285,
+      "filesWritten": [
+        "wiki/sources/1b107b65-6907-4582-9c32-ee7602af40d5.md"
+      ]
+    },
+    "1feccbed-9fc3-4e6f-af7e-504fc0f79644.md": {
+      "hash": "fdea27345d45b0cdb37245d90fe68fe5a27a5fc5f5b3a80a3c3e94b73520d547",
+      "timestamp": 1777461328060,
+      "filesWritten": [
+        "wiki/sources/1feccbed-9fc3-4e6f-af7e-504fc0f79644.md",
+        "wiki/entities/onetrans.md",
+        "wiki/entities/bytedance.md",
+        "wiki/entities/huggingface-parquet.md",
+        "wiki/concepts/多域序列并入.md",
+        "wiki/concepts/causal-attention.md",
+        "wiki/concepts/块内参数共享规则.md",
+        "wiki/concepts/交叉请求KV缓存.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "028d6b10-842d-476e-9aff-75190494b89c.md": {
+      "hash": "0130c6f604a554c942ed2cb2c42688ece5b08fb4a163f431a734e042450d3352",
+      "timestamp": 1777461366463,
+      "filesWritten": [
+        "wiki/sources/028d6b10-842d-476e-9aff-75190494b89c.md"
+      ]
+    },
+    "2d6c46a6-ec1b-468e-b475-ca64e91e0768.md": {
+      "hash": "10c18298dee58280383b11ec83171e6d32aecd265570225ab6ac47b7b58b608b",
+      "timestamp": 1777461407651,
+      "filesWritten": [
+        "wiki/sources/2d6c46a6-ec1b-468e-b475-ca64e91e0768.md",
+        "wiki/entities/deepcontextnet.md",
+        "wiki/entities/muon-optimizer.md",
+        "wiki/concepts/统一嵌入层.md",
+        "wiki/concepts/序列合成.md",
+        "wiki/concepts/深度交互.md",
+        "wiki/concepts/cls-集成.md",
+        "wiki/concepts/非序列特征压缩.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "2e27e6fa-dd52-4724-a935-d3a167c9f358.md": {
+      "hash": "ed2521163af72753247cd6863c2544f8d64b5af50bf95a6e7c006c802bc8c00c",
+      "timestamp": 1777461444022,
+      "filesWritten": [
+        "wiki/sources/2e27e6fa-dd52-4724-a935-d3a167c9f358.md",
+        "wiki/entities/综合作战计划.md",
+        "wiki/concepts/工程三件套.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "6ab21467-3b2e-410d-ad03-745d0d2f7796.md": {
+      "hash": "d07ab3d00dccfb62576975831542477d475c745b54c5f9e0de8cd497bb92076f",
+      "timestamp": 1777461491229,
+      "filesWritten": [
+        "wiki/sources/6ab21467-3b2e-410d-ad03-745d0d2f7796.md",
+        "wiki/entities/taac2026-framing-analysis.md",
+        "wiki/concepts/同构-token化.md",
+        "wiki/concepts/统一-block设计.md",
+        "wiki/concepts/延迟可控的scaling.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "6c886021-c6ef-4e0c-b85e-beaa79f2e060.md": {
+      "hash": "d53008209ba775c136501bd598efb894947a4d80ac27eaecc164f716dbd7b97c",
+      "timestamp": 1777461553221,
+      "filesWritten": [
+        "wiki/sources/6c886021-c6ef-4e0c-b85e-beaa79f2e060.md",
+        "wiki/entities/kunlun.md",
+        "wiki/entities/fat-field-aware-attention.md",
+        "wiki/entities/sample-is-feature.md",
+        "wiki/entities/transact-v2.md",
+        "wiki/entities/hyformer.md",
+        "wiki/entities/wukong.md",
+        "wiki/concepts/三档实验路线.md",
+        "wiki/concepts/训练目标.md",
+        "wiki/concepts/论文奖项策略.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "08c3ab25-9bea-4c51-8817-52c9cb4fc485.md": {
+      "hash": "5f55327fccbab048b49c170451bcd79214f79b7185b5962df17c5b6859e31c3d",
+      "timestamp": 1777461623777,
+      "filesWritten": [
+        "wiki/sources/08c3ab25-9bea-4c51-8817-52c9cb4fc485.md"
+      ]
+    },
+    "8d7ad6b3-c41d-4352-ad78-6c363ef7ddf8.md": {
+      "hash": "e40a30deeaf570ad674a17508f58dd39efcd914a1a905ad8e357db005a81387d",
+      "timestamp": 1777461671400,
+      "filesWritten": [
+        "wiki/sources/8d7ad6b3-c41d-4352-ad78-6c363ef7ddf8.md",
+        "wiki/entities/taac2026-data-format.md",
+        "wiki/concepts/taac2026-modeling-challenges.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "9af98e11-7039-4f9c-9e6d-ac3ad23f043a.md": {
+      "hash": "815c02de70a413af2566b496bc035a824564daf64583c8ef0224a810fbb13ff6",
+      "timestamp": 1777461730492,
+      "filesWritten": [
+        "wiki/sources/9af98e11-7039-4f9c-9e6d-ac3ad23f043a.md"
+      ]
+    },
+    "9d892f8e-1218-4bd5-b6c7-e3cc35bc2f66.md": {
+      "hash": "09a135daebbc1a61ba115335fa96a88b98e4013c7517a675bfa4a6c624b09247",
+      "timestamp": 1777461791849,
+      "filesWritten": [
+        "wiki/sources/9d892f8e-1218-4bd5-b6c7-e3cc35bc2f66.md",
+        "wiki/entities/classic-model-tricks-absorption.md",
+        "wiki/entities/din.md",
+        "wiki/entities/dien.md",
+        "wiki/entities/sasrec.md",
+        "wiki/entities/bert4rec.md",
+        "wiki/entities/dcn.md",
+        "wiki/entities/dcnv2.md",
+        "wiki/concepts/classic-model-absorption-strategy.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "1376ab28-5674-4c19-82f2-a4401e75b0b2.md": {
+      "hash": "1ba964fce9632c51a97c1d1600688624ff676114daf9e3168939b7d2688668da",
+      "timestamp": 1777461831486,
+      "filesWritten": [
+        "wiki/sources/1376ab28-5674-4c19-82f2-a4401e75b0b2.md"
+      ]
+    },
+    "25c98cc2-55a5-483f-a395-9be79561c6f6.md": {
+      "hash": "cf47d6fdb9024af15d6696a3e04d61ca4e024172290d476a428101e8e69ae18b",
+      "timestamp": 1777461887843,
+      "filesWritten": [
+        "wiki/sources/25c98cc2-55a5-483f-a395-9be79561c6f6.md",
+        "wiki/entities/mtgr.md",
+        "wiki/concepts/分层-tokenizer设计.md",
+        "wiki/concepts/三档实验路线.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "332a2579-1a3a-4ad8-ace0-0def1e4135fe.md": {
+      "hash": "fc4b57792b48c19377dba59d580521865209c1fd98fe701afcb7e26aef6a032c",
+      "timestamp": 1777461940628,
+      "filesWritten": [
+        "wiki/sources/332a2579-1a3a-4ad8-ace0-0def1e4135fe.md",
+        "wiki/entities/taac2026-cluster-review.md",
+        "wiki/concepts/taac2026-cluster-analysis.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "36c9093a-685e-405e-ab99-2ab5fa147443.md": {
+      "hash": "3d4ea004150d4ba97ceb47134d9554c95b4bd5370db0819cf7777c47f945c00d",
+      "timestamp": 1777461993544,
+      "filesWritten": [
+        "wiki/sources/36c9093a-685e-405e-ab99-2ab5fa147443.md",
+        "wiki/entities/sample-is-feature.md",
+        "wiki/concepts/sample-level-token.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "41c16c8b-3ce0-459b-89ac-b00602053736.md": {
+      "hash": "4672989455df2c18d11a9f35e4e826f5f537a39c3da6d9259f66a9f34f63e77a",
+      "timestamp": 1777462053120,
+      "filesWritten": [
+        "wiki/sources/41c16c8b-3ce0-459b-89ac-b00602053736.md",
+        "wiki/entities/muon-optimizer.md",
+        "wiki/concepts/rope-encoding.md",
+        "wiki/entities/deepcontextnet.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "41ce5aed-f9ff-4d69-9170-ec09aff8d732.md": {
+      "hash": "c3b47fdd04e91050fbe17f325d1084a5b70b4eaf712da3c6773a0bf7e91ba3a2",
+      "timestamp": 1777462104720,
+      "filesWritten": [
+        "wiki/sources/41ce5aed-f9ff-4d69-9170-ec09aff8d732.md"
+      ]
+    },
+    "55103a82-3f8e-483f-bf0b-a9d2b16e7472.md": {
+      "hash": "afd65db0554c1e762ff615535ad3d224016eb8c2657e9c58dc010916c2f68d27",
+      "timestamp": 1777462159698,
+      "filesWritten": [
+        "wiki/sources/55103a82-3f8e-483f-bf0b-a9d2b16e7472.md"
+      ]
+    },
+    "80f87065-23cb-4f4d-ab2d-90eafcff89f9.md": {
+      "hash": "38b4c5797180aeb06e912140244e994f04233d8f3ae28e8a20afd93336825284",
+      "timestamp": 1777462215551,
+      "filesWritten": [
+        "wiki/sources/80f87065-23cb-4f4d-ab2d-90eafcff89f9.md",
+        "wiki/entities/scaling-law-dimensions.md",
+        "wiki/concepts/scaling-law-theory.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    },
+    "85f9c15a-930f-4e58-af44-676c54c4b839.md": {
+      "hash": "ada78f97b2bf0fa6338aa345f2a207578c02c3dc55a813a3b32ff41288089f03",
+      "timestamp": 1777462272528,
+      "filesWritten": [
+        "wiki/sources/85f9c15a-930f-4e58-af44-676c54c4b839.md"
+      ]
+    },
+    "a1222571-c9e3-4b27-b630-c00090560127.md": {
+      "hash": "d2c19007fcc7fe564f8eb19ffd636a5c7ada64d28470f65a922ff72ddc19e14f",
+      "timestamp": 1777462354995,
+      "filesWritten": [
+        "wiki/sources/a1222571-c9e3-4b27-b630-c00090560127.md",
+        "wiki/entities/hstu.md",
+        "wiki/concepts/pointwise-normalization.md",
+        "wiki/concepts/spatial-aggregation.md",
+        "wiki/entities/suyanli220.md",
+        "wiki/entities/flashattention2.md",
+        "wiki/entities/m-falcon.md",
+        "wiki/index.md",
+        "wiki/log.md",
+        "wiki/overview.md"
+      ]
+    }
+  }
+}
