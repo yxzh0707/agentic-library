@@ -326,6 +326,130 @@ export function registerReadTools(deps: RegisterDeps) {
       };
     },
   });
+
+  // ===== Hermes Agent 深度分析工具 v2.1 =====
+
+  registry.register({
+    name: 'deep_analyze',
+    description: '深度分析工具:接受一个问题/查询,自动执行 search_knowledge → 读取 top 节点 → 图遍历扩展 → synthesis 归档。返回完整的分析结果。',
+    permission_tag: 'read',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: '分析问题' },
+        k_raw: { type: 'integer', default: 5, description: '检索的 raw 节点数' },
+        k_synthesis: { type: 'integer', default: 3, description: '检索的 synthesis 节点数' },
+        max_traverse_hops: { type: 'integer', default: 1, description: '图遍历跳数(0=不遍历)' },
+        save_as_synthesis: { type: 'boolean', default: true, description: '是否将分析结果保存为 synthesis 节点' },
+      },
+      required: ['query'],
+    },
+    handler: async (args, ctx) => {
+      const query = String(args.query);
+      const k_raw = Number(args.k_raw ?? 5);
+      const k_synthesis = Number(args.k_synthesis ?? 3);
+      const maxHops = Number(args.max_traverse_hops ?? 1);
+      const saveAsSynthesis = args.save_as_synthesis !== false;
+
+      // Phase 1: Search
+      const searchResult = await search({ db, storage, embedding, index, params }, query, k_raw, k_synthesis, ctx);
+      const rawHits = (searchResult as any)?.raw ?? [];
+      const synthHits = (searchResult as any)?.synthesis ?? [];
+
+      // Phase 2: Read full content of top hits
+      const readNodes: Array<{ uuid: string; l0_summary: string; l1_overview: string; body: string; cluster_id: number | null }> = [];
+      for (const h of [...rawHits.slice(0, 5), ...synthHits.slice(0, 3)]) {
+        if (!h.uuid) continue;
+        const node = storage.readNode(h.uuid);
+        if (node) {
+          readNodes.push({
+            uuid: node.uuid,
+            l0_summary: node.l0_summary,
+            l1_overview: node.l1_overview,
+            body: node.body?.slice(0, 3000) ?? '',
+            cluster_id: node.derived_state?.cluster_id ?? null,
+          });
+        }
+      }
+
+      // Phase 3: Traverse to find related nodes (if maxHops > 0)
+      const traversed: string[] = [];
+      if (maxHops > 0) {
+        for (const n of readNodes.slice(0, 3)) {
+          // Get wikilinks
+          const outLinks = db.prepare('SELECT target_uuid AS uuid FROM wikilinks WHERE source_uuid=?').all(n.uuid) as { uuid: string }[];
+          const inLinks = db.prepare('SELECT source_uuid AS uuid FROM wikilinks WHERE target_uuid=?').all(n.uuid) as { uuid: string }[];
+          for (const l of [...outLinks, ...inLinks]) {
+            if (!traversed.includes(l.uuid)) traversed.push(l.uuid);
+          }
+        }
+        // Read traversed node summaries
+        for (const uuid of traversed.slice(0, 10)) {
+          const node = storage.readNode(uuid);
+          if (node) {
+            readNodes.push({
+              uuid: node.uuid,
+              l0_summary: node.l0_summary,
+              l1_overview: node.l1_overview,
+              body: node.body?.slice(0, 1000) ?? '',
+              cluster_id: node.derived_state?.cluster_id ?? null,
+            });
+          }
+        }
+      }
+
+      // Phase 4: Build a structured analysis
+      const sourceUuids = readNodes.map((n) => n.uuid);
+      const analysisContext = {
+        query,
+        total_sources: readNodes.length,
+        source_summaries: readNodes.map((n) => ({ uuid: n.uuid, l0: n.l0_summary, cluster: n.cluster_id })),
+        traversed_count: traversed.length,
+      };
+
+      // Phase 5: Optionally save as synthesis node
+      let synthesisUuid: string | null = null;
+      if (saveAsSynthesis && readNodes.length > 0) {
+        try {
+          // Try to create a consolidation synthesis node
+          const candidate = {
+            source_uuids: sourceUuids.slice(0, 5), // Max 5 sources for synthesis
+            cluster_id: null as number | null,
+            subtype: 'consolidation' as const,
+            trigger: { type: 'explicit' as const, evidence: { reason: `deep_analyze: ${query}`, requested_by: ctx.agent_id } },
+          };
+          // Use generateConsolidation via synthesis service directly
+          const synthNode = storage.createNode({
+            node_type: 'synthesis',
+            body: `# 深度分析: ${query}\n\n## 引用来源\n${readNodes.map((n, i) => `${i + 1}. [[${n.uuid}]] - ${n.l0_summary}`).join('\n')}\n\n## 分析结果\n(分析结果通过 l1_overview 呈现)`,
+            l0_summary: `深度分析: ${query.slice(0, 60)}`,
+            l1_overview: `基于 ${readNodes.length} 个源节点的深度分析。关键发现:\n${readNodes.slice(0, 8).map((n) => `- ${n.l0_summary}`).join('\n')}`,
+            synthesis_subtype: 'consolidation',
+            sources: sourceUuids.slice(0, 10).map((u) => ({ uuid: u, role: 'primary' as const })),
+            trigger: { type: 'explicit', evidence: { reason: `deep_analyze: ${query}`, requested_by: ctx.agent_id } },
+            created_by: `agent:${ctx.agent_id}`,
+            created_by_run: ctx.agent_run_id,
+          });
+          synthesisUuid = synthNode.uuid;
+        } catch (err) {
+          // synthesis creation failed, still return the analysis
+        }
+      }
+
+      return {
+        query,
+        analysis: analysisContext,
+        sources: readNodes.map((n) => ({
+          uuid: n.uuid,
+          l0_summary: n.l0_summary,
+          body_excerpt: n.body.slice(0, 500),
+          cluster_id: n.cluster_id,
+        })),
+        synthesis_uuid: synthesisUuid,
+        note: synthesisUuid ? 'Analysis saved as synthesis node. Use search_knowledge or read_node to access future queries.' : 'Analysis completed (not saved).',
+      };
+    },
+  });
 }
 
 interface RawQueryRow {

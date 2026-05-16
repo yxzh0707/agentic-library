@@ -400,6 +400,159 @@ export function registerAdminTools(deps: RegisterDeps) {
     },
   });
 
+  // ===== Hermes Agent 新增工具 v2.1 =====
+
+  registry.register({
+    name: 'create_reflection',
+    description: '将推理轨迹(reflection)永久存入知识库。接受 trace_content + evidence_uuids，生成 reflection 类型节点。reflection 节点不同于 synthesis——它是 Agent 的元认知痕迹，有 TTL、visibility 和 outcome 字段。',
+    permission_tag: 'admin',
+    parameters: {
+      type: 'object',
+      properties: {
+        body: { type: 'string', description: 'reflection 正文(CoT trace 的精炼版本)' },
+        l0_summary: { type: 'string', description: '一句话摘要(≤200字符)' },
+        l1_overview: { type: 'string', description: '结构化概览(≤2000字符)' },
+        reflection_subtype: { type: 'string', enum: ['decision', 'failure_analysis', 'retrieval_strategy', 'plan', 'critique', 'postmortem'], description: 'reflection 子类型' },
+        evidence_uuids: { type: 'array', items: { type: 'string' }, description: '参考的节点 UUID 列表' },
+        trace_content: { type: 'string', description: '原始 CoT 推理文本(存到 reasoning_traces 表)' },
+        outcome: { type: 'string', enum: ['success', 'failure', 'partial'], description: '本次推理的结果' },
+        final_answer_summary: { type: 'string', description: '最终答案摘要' },
+        visibility: { type: 'string', enum: ['private', 'debug', 'retrievable'], default: 'retrievable' },
+        ttl_hours: { type: 'number', description: 'TTL 小时数(0=永不过期,默认168=7天)' },
+      },
+      required: ['body'],
+    },
+    handler: async (args, ctx) => {
+      // 1. Create the reflection node
+      const node = storage.createNode({
+        node_type: 'reflection',
+        body: String(args.body),
+        l0_summary: args.l0_summary as string | undefined,
+        l1_overview: args.l1_overview as string | undefined,
+        created_by: `agent:${ctx.agent_id}`,
+        created_by_run: ctx.agent_run_id,
+      });
+      
+      // 2. If trace_content provided, store in reasoning_traces
+      if (args.trace_content) {
+        const traceContent = String(args.trace_content);
+        const ttlHours = Number(args.ttl_hours ?? 168);
+        storage.insertTrace({
+          trace_id: node.uuid,
+          agent_id: ctx.agent_id,
+          agent_run_id: ctx.agent_run_id,
+          task_type: (args.reflection_subtype as string) ?? 'general',
+          trace_content: traceContent,
+          evidence_uuids: Array.isArray(args.evidence_uuids) ? args.evidence_uuids.map(String) : [],
+          final_answer_summary: args.final_answer_summary as string | undefined,
+          outcome: args.outcome as string | undefined,
+          expires_at: ttlHours > 0 ? new Date(Date.now() + ttlHours * 3600 * 1000).toISOString() : undefined,
+        });
+      }
+      
+      // 3. Log the operation
+      oplog.append({
+        agent_run_id: ctx.agent_run_id,
+        agent_id: ctx.agent_id,
+        op_type: 'extract',
+        args: { kind: 'reflection', new_uuid: node.uuid, subtype: args.reflection_subtype ?? null },
+        reason: `create_reflection: ${(args.l0_summary as string)?.slice(0, 80) ?? 'no summary'}`,
+        affected_uuids: [node.uuid, ...(Array.isArray(args.evidence_uuids) ? args.evidence_uuids.map(String) : [])],
+      });
+      
+      return { uuid: node.uuid, reflection_subtype: args.reflection_subtype ?? null };
+    },
+  });
+
+  registry.register({
+    name: 'batch_dismiss_flags',
+    description: '批量驳回 flag 队列中的项目。按 flag_type 或 similarity 阈值过滤，一次性驳回所有匹配项。',
+    permission_tag: 'admin',
+    parameters: {
+      type: 'object',
+      properties: {
+        flag_ids: { type: 'array', items: { type: 'string' }, description: '指定要驳回的 flag_id 列表(与 filter 互斥)' },
+        filter: { type: 'string', enum: ['all_pending', 'potential_duplicate_low_sim', 'l1_inaccurate', 'other'], description: '过滤条件(与 flag_ids 互斥)' },
+        reason: { type: 'string', description: '批量驳回的原因' },
+      },
+    },
+    handler: async (args, ctx) => {
+      const reason = String(args.reason ?? 'batch dismiss');
+      const flagIds: string[] = [];
+      
+      if (Array.isArray(args.flag_ids)) {
+        flagIds.push(...args.flag_ids.map(String));
+      } else if (args.filter) {
+        const all = flagQueue.list({ status: 'pending' });
+        const filter = String(args.filter);
+        for (const f of all) {
+          if (filter === 'all_pending') {
+            flagIds.push(f.flag_id);
+          } else if (filter === 'l1_inaccurate' && f.issue_type === 'l1_inaccurate') {
+            flagIds.push(f.flag_id);
+          } else if (filter === 'other' && f.issue_type === 'other') {
+            flagIds.push(f.flag_id);
+          }
+        }
+      }
+      
+      let dismissed = 0;
+      let errors = 0;
+      for (const fid of flagIds) {
+        try {
+          const ok = flagQueue.dismiss(fid);
+          if (ok) dismissed++;
+          else errors++;
+        } catch { errors++; }
+      }
+      
+      oplog.append({
+        agent_run_id: ctx.agent_run_id,
+        agent_id: ctx.agent_id,
+        op_type: 'extract',
+        args: { kind: 'batch_dismiss_flags', count: dismissed, errors, filter: args.filter ?? null },
+        reason: `batch_dismiss: ${dismissed} dismissed, ${errors} errors - ${reason}`,
+        affected_uuids: [],
+      });
+      
+      return { dismissed, errors };
+    },
+  });
+
+  registry.register({
+    name: 'update_cluster_description',
+    description: '更新指定簇的描述文本。直接写入 clusters 表的 description 字段。',
+    permission_tag: 'admin',
+    parameters: {
+      type: 'object',
+      properties: {
+        cluster_id: { type: 'integer', description: '要更新的簇 ID' },
+        description: { type: 'string', description: '新的描述文本' },
+        reason: { type: 'string', description: '更新原因' },
+      },
+      required: ['cluster_id', 'description'],
+    },
+    handler: async (args, ctx) => {
+      const cid = Number(args.cluster_id);
+      const desc = String(args.description);
+      const existing = db.prepare('SELECT * FROM clusters WHERE cluster_id=?').get(cid);
+      if (!existing) return { error: 'cluster not found' };
+      
+      db.prepare('UPDATE clusters SET description=? WHERE cluster_id=?').run(desc, cid);
+      
+      oplog.append({
+        agent_run_id: ctx.agent_run_id,
+        agent_id: ctx.agent_id,
+        op_type: 'move',
+        args: { cluster_id: cid, old_description: (existing as any).description ?? null, new_description: desc },
+        reason: String(args.reason ?? 'update cluster description'),
+        affected_uuids: [],
+      });
+      
+      return { cluster_id: cid, description: desc, updated: true };
+    },
+  });
+
   // v2.0 Hermes Optimizer §7 + §9 — sub-agent spawning
 
   registry.register({
