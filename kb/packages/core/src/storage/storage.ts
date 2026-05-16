@@ -367,12 +367,13 @@ export class NodeStorage {
     return rows.map(briefFromRow);
   }
 
-  countByStatus(): { total: number; raw: number; synthesis: number; pending_embed: number } {
+  countByStatus(): { total: number; raw: number; synthesis: number; reflection: number; pending_embed: number } {
     const total = (this.db.prepare("SELECT COUNT(*) AS c FROM nodes WHERE status='active'").get() as { c: number }).c;
     const raw = (this.db.prepare("SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND node_type='raw'").get() as { c: number }).c;
     const synth = (this.db.prepare("SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND node_type='synthesis'").get() as { c: number }).c;
+    const refl = (this.db.prepare("SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND node_type='reflection'").get() as { c: number }).c;
     const pending = (this.db.prepare("SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND embedded_at IS NULL").get() as { c: number }).c;
-    return { total, raw, synthesis: synth, pending_embed: pending };
+    return { total, raw, synthesis: synth, reflection: refl, pending_embed: pending };
   }
 
   pendingEmbeddingUuids(limit = 50): string[] {
@@ -692,12 +693,187 @@ export class NodeStorage {
     for (const t of links) stmt.run(uuid, t);
   }
 
+  /** Public: delete a single wikilink edge. Used by hermes auto-clean rules. */
+  deleteWikilink(source_uuid: string, target_uuid: string) {
+    this.db.prepare('DELETE FROM wikilinks WHERE source_uuid=? AND target_uuid=?').run(source_uuid, target_uuid);
+  }
+
+  /** Generic typed query helper. Used by hermes rules to avoid direct db access. */
+  queryAll<T>(sql: string, params: unknown[] = []): T[] {
+    return this.db.prepare(sql).all(...params) as T[];
+  }
+
+  querySingle<T>(sql: string, params: unknown[] = []): T | null {
+    return (this.db.prepare(sql).get(...params) as T | undefined) ?? null;
+  }
+
+  countActiveClusters(): number {
+    return (this.db.prepare('SELECT COUNT(*) AS c FROM clusters WHERE status=?').get('active') as { c: number }).c;
+  }
+
+  listFrictionClusters(): number[] {
+    return (this.db
+      .prepare("SELECT cluster_id FROM clusters WHERE friction_count > 0 AND status='active'")
+      .all() as { cluster_id: number }[])
+      .map((r) => r.cluster_id);
+  }
+
+  countPendingOptimizationItems(): number {
+    return (this.db.prepare("SELECT COUNT(*) AS c FROM optimization_queue WHERE status='pending'").get() as { c: number }).c;
+  }
+
   private replaceSources(uuid: string, sources: { uuid: string; role: string }[]) {
     this.db.prepare('DELETE FROM synthesis_sources WHERE synthesis_uuid=?').run(uuid);
     const stmt = this.db.prepare(
       'INSERT INTO synthesis_sources (synthesis_uuid, source_uuid, role) VALUES (?, ?, ?)',
     );
     for (const s of sources) stmt.run(uuid, s.uuid, s.role);
+  }
+
+  // v2.0 Hermes Optimizer §4.3 — reasoning trace CRUD
+
+  insertTrace(trace: {
+    trace_id: string;
+    agent_id: string;
+    agent_run_id?: string;
+    query_id?: string;
+    task_type?: string;
+    trace_content: string;
+    evidence_uuids?: string[];
+    final_answer_summary?: string;
+    outcome?: string;
+    expires_at?: string;
+  }) {
+    this.db
+      .prepare(
+        `INSERT INTO reasoning_traces
+          (trace_id, agent_id, agent_run_id, query_id, task_type, trace_content,
+           evidence_uuids, final_answer_summary, outcome, created_at, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .run(
+        trace.trace_id,
+        trace.agent_id,
+        trace.agent_run_id ?? null,
+        trace.query_id ?? null,
+        trace.task_type ?? null,
+        trace.trace_content,
+        trace.evidence_uuids ? JSON.stringify(trace.evidence_uuids) : null,
+        trace.final_answer_summary ?? null,
+        trace.outcome ?? null,
+        nowIso(),
+        trace.expires_at ?? null,
+      );
+  }
+
+  listTraces(opts?: { agent_run_id?: string; expired?: boolean; limit?: number }) {
+    let sql = 'SELECT * FROM reasoning_traces WHERE 1=1';
+    const params: unknown[] = [];
+    if (opts?.agent_run_id) {
+      sql += ' AND agent_run_id=?';
+      params.push(opts.agent_run_id);
+    }
+    if (opts?.expired === false) {
+      sql += ' AND (expires_at IS NULL OR expires_at > ?)';
+      params.push(nowIso());
+    } else if (opts?.expired === true) {
+      sql += ' AND expires_at IS NOT NULL AND expires_at <= ?';
+      params.push(nowIso());
+    }
+    sql += ' ORDER BY created_at DESC';
+    if (opts?.limit) {
+      sql += ' LIMIT ?';
+      params.push(opts.limit);
+    }
+    return this.db.prepare(sql).all(...params);
+  }
+
+  deleteExpiredTraces() {
+    return this.db
+      .prepare('DELETE FROM reasoning_traces WHERE expires_at IS NOT NULL AND expires_at <= ?')
+      .run(nowIso());
+  }
+
+  // v2.0 Hermes Optimizer §4.1 — heartbeat.md read/write
+
+  private get hermesDir(): string {
+    return path.join(this.dataDir, 'hermes');
+  }
+
+  readHeartbeat(): string | null {
+    const heartbeatPath = path.join(this.hermesDir, 'heartbeat.md');
+    if (!fs.existsSync(heartbeatPath)) return null;
+    return fs.readFileSync(heartbeatPath, 'utf-8');
+  }
+
+  updateHeartbeat(content: string) {
+    if (!fs.existsSync(this.hermesDir)) {
+      fs.mkdirSync(this.hermesDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(this.hermesDir, 'heartbeat.md'), content, 'utf-8');
+  }
+
+  // v2.0 Hermes Optimizer §4.4 — optimization_queue CRUD
+
+  insertOptimizationItem(input: {
+    item_id: string;
+    problem_type: string;
+    target_uuid?: string | null;
+    target_cluster_id?: number | null;
+    evidence?: string;
+    proposed_action?: string;
+    risk_level: string;
+    created_by: string;
+  }) {
+    this.db
+      .prepare(
+        `INSERT INTO optimization_queue
+          (item_id, problem_type, target_uuid, target_cluster_id, evidence,
+           proposed_action, risk_level, status, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      )
+      .run(
+        input.item_id,
+        input.problem_type,
+        input.target_uuid ?? null,
+        input.target_cluster_id ?? null,
+        input.evidence ?? null,
+        input.proposed_action ?? null,
+        input.risk_level,
+        input.created_by,
+        nowIso(),
+      );
+  }
+
+  listOptimizationQueue(filter?: {
+    status?: string;
+    risk_level?: string;
+    limit?: number;
+  }): unknown[] {
+    let sql = 'SELECT * FROM optimization_queue WHERE 1=1';
+    const params: unknown[] = [];
+    if (filter?.status) {
+      sql += ' AND status=?';
+      params.push(filter.status);
+    }
+    if (filter?.risk_level) {
+      sql += ' AND risk_level=?';
+      params.push(filter.risk_level);
+    }
+    sql += ' ORDER BY created_at DESC';
+    if (filter?.limit) {
+      sql += ' LIMIT ?';
+      params.push(filter.limit);
+    }
+    return this.db.prepare(sql).all(...params);
+  }
+
+  resolveOptimizationItem(item_id: string, resolution: string) {
+    this.db
+      .prepare(
+        "UPDATE optimization_queue SET status='resolved', resolved_at=?, resolution=? WHERE item_id=?",
+      )
+      .run(nowIso(), resolution, item_id);
   }
 }
 

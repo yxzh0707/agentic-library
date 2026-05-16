@@ -1,5 +1,20 @@
 import type { RegisterDeps } from './index.js';
 import type { FlagIssueType } from '@kb/shared';
+import { newUuid } from '../util/uuid.js';
+
+// reasoning_traces table reference — imported here to avoid circular dep
+type TraceInsert = {
+  trace_id: string;
+  agent_id: string;
+  agent_run_id?: string;
+  query_id?: string;
+  task_type?: string;
+  trace_content: string;
+  evidence_uuids?: string[];
+  final_answer_summary?: string;
+  outcome?: string;
+  expires_at?: string;
+};
 
 export function registerWriteTools(deps: RegisterDeps) {
   const { registry, storage, flagQueue } = deps;
@@ -127,6 +142,50 @@ export function registerWriteTools(deps: RegisterDeps) {
         flagged_by: `agent:${ctx.agent_id}`,
       });
       return flag;
+    },
+  });
+
+  // v2.0 Hermes Optimizer §4.3 — submit reasoning trace
+
+  registry.register({
+    name: 'submit_trace',
+    description:
+      '提交外部 agent 的 CoT trace。TTL 过期后自动删除，主要用于提炼 reflection。',
+    permission_tag: 'write',
+    parameters: {
+      type: 'object',
+      properties: {
+        agent_run_id: { type: 'string' },
+        query_id: { type: 'string' },
+        task_type: { type: 'string' },
+        trace_content: { type: 'string' },
+        evidence_uuids: { type: 'array', items: { type: 'string' } },
+        final_answer_summary: { type: 'string' },
+        outcome: { type: 'string', enum: ['success', 'failure', 'partial'] },
+        ttl_hours: { type: 'number', description: 'TTL in hours, default 72' },
+      },
+      required: ['trace_content'],
+    },
+    handler: async (args, ctx) => {
+      const trace_id = newUuid();
+      const ttl_hours = Number(args.ttl_hours ?? 72);
+      const expires_at =
+        ttl_hours > 0
+          ? new Date(Date.now() + ttl_hours * 3600 * 1000).toISOString()
+          : undefined;
+      storage.insertTrace({
+        trace_id,
+        agent_id: ctx.agent_id,
+        agent_run_id: (args.agent_run_id as string | undefined) ?? ctx.agent_run_id,
+        query_id: args.query_id as string | undefined,
+        task_type: args.task_type as string | undefined,
+        trace_content: String(args.trace_content),
+        evidence_uuids: (args.evidence_uuids as string[] | undefined),
+        final_answer_summary: args.final_answer_summary as string | undefined,
+        outcome: args.outcome as string | undefined,
+        expires_at,
+      });
+      return { trace_id, stored: true };
     },
   });
 }

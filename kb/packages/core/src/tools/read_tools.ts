@@ -282,6 +282,50 @@ export function registerReadTools(deps: RegisterDeps) {
       return { entries: rows.map(rowToQueryEntry) };
     },
   });
+
+  // v2.0 Hermes Optimizer §6 — hermes-category read tools
+
+  registry.register({
+    name: 'read_heartbeat',
+    description: '读取 KB 当前 heartbeat.md 内容，了解 KB 整体状态和开放循环。',
+    permission_tag: 'read',
+    parameters: { type: 'object', properties: {}, required: [] },
+    handler: async () => {
+      const content = storage.readHeartbeat();
+      return { heartbeat: content, available: content !== null };
+    },
+  });
+
+  registry.register({
+    name: 'get_hermes_status',
+    description: '返回 KB health 摘要 + heartbeat 内容。外部 agent 兼职时的操作手册。',
+    permission_tag: 'read',
+    parameters: {
+      type: 'object',
+      properties: {
+        include_heartbeat: { type: 'boolean', default: true },
+        include_queue_depth: { type: 'boolean', default: true },
+      },
+    },
+    handler: async (args: { include_heartbeat?: boolean; include_queue_depth?: boolean }) => {
+      const counts = storage.countByStatus();
+      const clusterCount = storage.countActiveClusters();
+      const frictionClusters = storage.listFrictionClusters();
+      const queueDepth = args.include_queue_depth !== false ? storage.countPendingOptimizationItems() : null;
+      const heartbeat = args.include_heartbeat !== false ? storage.readHeartbeat() : null;
+      const flagCounts = deps.flagQueue?.countByStatus?.() ?? null;
+
+      return {
+        kb_version: '2.0',
+        node_counts: counts,
+        cluster_count: clusterCount,
+        friction_clusters: frictionClusters,
+        optimization_queue_depth: queueDepth,
+        flag_queue_counts: flagCounts,
+        heartbeat,
+      };
+    },
+  });
 }
 
 interface RawQueryRow {

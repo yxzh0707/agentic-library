@@ -221,6 +221,37 @@ CREATE TABLE IF NOT EXISTS similarity_edges (
   computed_at TEXT NOT NULL,
   PRIMARY KEY (source_uuid, target_uuid)
 );
+
+-- v2.0 Hermes Optimizer §4.3 — raw CoT traces, TTL-managed, not in default search
+CREATE TABLE IF NOT EXISTS reasoning_traces (
+  trace_id TEXT PRIMARY KEY,
+  agent_id TEXT NOT NULL,
+  agent_run_id TEXT,
+  query_id TEXT,
+  task_type TEXT,
+  trace_content TEXT NOT NULL,
+  evidence_uuids TEXT,
+  final_answer_summary TEXT,
+  outcome TEXT,
+  created_at TEXT NOT NULL,
+  expires_at TEXT
+);
+
+-- v2.0 Hermes Optimizer §4.4 — internal + external KB optimization work queue
+CREATE TABLE IF NOT EXISTS optimization_queue (
+  item_id TEXT PRIMARY KEY,
+  problem_type TEXT NOT NULL,
+  target_uuid TEXT,
+  target_cluster_id INTEGER,
+  evidence TEXT,
+  proposed_action TEXT,
+  risk_level TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  resolved_at TEXT,
+  resolution TEXT
+);
 `;
 
 // Per-column ALTER TABLE migrations for databases created before these columns
@@ -268,6 +299,9 @@ const POST_MIGRATION_INDEXES: string[] = [
   "CREATE INDEX IF NOT EXISTS idx_nodes_body_sha256 ON nodes(body_sha256)",
   "CREATE INDEX IF NOT EXISTS idx_nodes_subtype ON nodes(synthesis_subtype)",
   "CREATE INDEX IF NOT EXISTS idx_nodes_hub ON nodes(is_cluster_hub)",
+  "CREATE INDEX IF NOT EXISTS idx_traces_agent_run ON reasoning_traces(agent_run_id)",
+  "CREATE INDEX IF NOT EXISTS idx_traces_expires ON reasoning_traces(expires_at)",
+  "CREATE INDEX IF NOT EXISTS idx_optq_status ON optimization_queue(status)",
 ];
 
 function applyMigrations(db: DB) {

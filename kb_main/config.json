@@ -55,6 +55,18 @@
       ],
       "description": "admin agent for cluster operations",
       "created_at": "2026-05-14T11:05:54.200Z"
+    },
+    {
+      "agent_id": "hermes-agent",
+      "api_key": "kb_0c49f4080e8e694608351f1b78cd1689a4cef203cecd9b21",
+      "permissions": [
+        "read",
+        "write",
+        "structural",
+        "admin"
+      ],
+      "description": "Hermes Agent for functional testing",
+      "created_at": "2026-05-16T18:36:53.366Z"
     }
   ]
 }

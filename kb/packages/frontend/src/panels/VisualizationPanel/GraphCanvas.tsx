@@ -231,9 +231,6 @@ export function GraphCanvas({
         d3AlphaDecay={settings.alphaDecay}
         enableNodeDrag={true}
         enableZoomInteraction={true}
-        onEngineStop={() => {
-          ref.current?.zoomToFit?.(400, settings.zoomPadding);
-        }}
         linkColor={(l) => {
           const k = (l as RLink).kind;
           if (k === 'cluster_to_root') return 'rgba(30, 27, 75, 0.4)';

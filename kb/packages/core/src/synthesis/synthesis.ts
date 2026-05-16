@@ -125,7 +125,14 @@ export class SynthesisService {
     self_rating: number,
   ): { ok: true } | GateRejection {
     const { params } = this.deps;
-    if (compactness > params.compactness_hard_max) return { rejected: true, reason: 'too_long' };
+    const totalSourceTokens = sources.reduce((s, x) => s + estTokens(x.l1_overview), 0) + sources.reduce((s, x) => s + estTokens(x.body_excerpt), 0);
+    // If source content is very short (under 200 tokens), the compactness ratio is misleading.
+    // Short annotations of small source nodes should not be blocked.
+    if (totalSourceTokens < 200 && compactness > params.compactness_hard_max) {
+      // still allow it — compactness check doesn't apply to small sources
+    } else if (compactness > params.compactness_hard_max) {
+      return { rejected: true, reason: 'too_long' };
+    }
     if (!validateCitations(body, sources.map((s) => s.uuid))) {
       return { rejected: true, reason: 'missing_citation' };
     }

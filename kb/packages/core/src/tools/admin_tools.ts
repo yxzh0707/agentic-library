@@ -399,4 +399,113 @@ export function registerAdminTools(deps: RegisterDeps) {
       return { ok };
     },
   });
+
+  // v2.0 Hermes Optimizer §7 + §9 — sub-agent spawning
+
+  registry.register({
+    name: 'spawn_sub_agent',
+    description: 'Hermes 派生受限子任务:给一个狭窄目标 + 工具子集,子agent执行完结果合并回 Hermes。工具子集通过 allowed_tools 限制。sub-agent 的 run_id 归在父 Hermes run 下,可审计。',
+    permission_tag: 'admin',
+    parameters: {
+      type: 'object',
+      properties: {
+        task_prompt: { type: 'string', description: '子任务的详细指令（LLM 系统 prompt 的 user 部分）' },
+        allowed_tools: { type: 'array', items: { type: 'string' }, description: '允许子 agent 调用的工具名列表，空=无工具（纯推理）' },
+        context_uuids: { type: 'array', items: { type: 'string' }, description: '相关节点 UUID，工具如 read_node 可直接读取' },
+        max_turns: { type: 'integer', default: 5, description: '最大对话轮次，防止无限循环' },
+        model: { type: 'string', description: '可选指定模型，不填则用默认 LLM' },
+      },
+      required: ['task_prompt'],
+    },
+    handler: async (args, ctx) => {
+      const allowed = Array.isArray(args.allowed_tools) ? args.allowed_tools.map(String) : [];
+      const maxTurns = Number(args.max_turns ?? 5);
+      const contextUuids = Array.isArray(args.context_uuids) ? args.context_uuids.map(String) : [];
+
+      // 构建受限工具列表（只暴露 permission_tag 为 read 的工具，或已在 allowed_tools 中的工具）
+      const allowedSet = new Set(allowed);
+      const readOnlyTools = registry.list().filter((t) => {
+        if (allowedSet.size > 0) return allowedSet.has(t.name);
+        return t.permission_tag === 'read';
+      });
+
+      if (!deps.llm) return { error: 'llm not configured' };
+
+      // 读取 context nodes 供子 agent 参考
+      const contextNodes: Record<string, unknown> = {};
+      for (const uuid of contextUuids) {
+        const node = storage.readNode(uuid);
+        if (node) contextNodes[uuid] = { l0: node.l0_summary, l1: node.l1_overview, body_excerpt: node.body.slice(0, 500) };
+      }
+
+      // 构建子 agent system prompt（限制工具能力）
+      const toolDescs = readOnlyTools.map((t) => `  - ${t.name}: ${t.description}`).join('\n');
+      const systemPrompt = `你是 KB 的子任务执行 agent。你只能使用以下工具（其他工具不可用）：
+${toolDescs || '  （无工具，纯推理模式）'}
+
+重要约束：
+- 每次只调用一个工具
+- 结果返回后继续，直到任务完成或达到最大轮次
+- 最终输出一个 JSON 对象：{"result": "...", "actions_taken": ["..."], "confidence": "high|medium|low"}`;
+
+      let turns = 0;
+      let lastResult: unknown = null;
+      let done = false;
+
+      while (turns < maxTurns && !done) {
+        turns++;
+        const userMsg = turns === 1
+          ? `任务: ${args.task_prompt}\n\n参考上下文:\n${JSON.stringify(contextNodes, null, 2)}\n\n开始执行。`
+          : `继续。上次结果: ${JSON.stringify(lastResult)}`;
+
+        const completion = await deps.llm.chat({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMsg },
+          ],
+          response_format: { type: 'json_object' },
+          temperature: 0.3,
+        });
+
+        const raw = completion.choices?.[0]?.message?.content ?? '{}';
+        let parsed: { result?: string; actions_taken?: string[]; confidence?: string; tool_call?: string; tool_args?: Record<string, unknown> };
+        try { parsed = JSON.parse(raw); } catch { parsed = {}; }
+
+        if (parsed.result !== undefined) {
+          lastResult = parsed;
+          done = true;
+        } else if (parsed.tool_call && readOnlyTools.some((t) => t.name === parsed.tool_call)) {
+          // Execute the tool call and continue
+          const tool = readOnlyTools.find((t) => t.name === parsed.tool_call)!;
+          try {
+            const result = await tool.handler(parsed.tool_args ?? {}, ctx);
+            lastResult = { tool: parsed.tool_call, result };
+          } catch (err) {
+            lastResult = { tool: parsed.tool_call, error: String(err) };
+          }
+        } else {
+          lastResult = { raw, parsed };
+          done = true;
+        }
+      }
+
+      // 记录 sub-agent 执行到 op_log（挂在父 run 下）
+      const subOpId = oplog.append({
+        agent_run_id: ctx.agent_run_id,
+        agent_id: `subagent:${ctx.agent_id}`,
+        op_type: 'extract' as const,
+        args: { task_prompt: args.task_prompt, turns, allowed_tools: allowed, context_uuids: contextUuids },
+        reason: `sub_agent spawn: ${turns} turns`,
+        affected_uuids: contextUuids,
+      }).op_id;
+
+      return {
+        sub_op_id: subOpId,
+        parent_run_id: ctx.agent_run_id,
+        turns,
+        final_result: lastResult,
+        actions_taken: (lastResult as { actions_taken?: string[] })?.actions_taken ?? [],
+      };
+    },
+  });
 }

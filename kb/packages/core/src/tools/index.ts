@@ -24,6 +24,9 @@ export interface RegisterDeps {
   clustering: ClusteringService;
   flagQueue: FlagQueueService;
   params: KBConfigParameters;
+  heartbeat?: string;
+  // v2.0: optional llm for spawn_sub_agent tool
+  llm?: { chat: (msg: unknown) => Promise<{ choices?: { message?: { content?: string } }[] }> };
 }
 
 export function registerAllTools(deps: RegisterDeps) {

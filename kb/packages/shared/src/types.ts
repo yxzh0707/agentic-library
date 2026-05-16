@@ -14,6 +14,37 @@ export type SynthesisSubtype =
   | 'association'
   | 'meta';
 
+// Reflection node subtypes (Hermes Optimizer)
+export type ReflectionSubtype =
+  | 'decision'
+  | 'failure_analysis'
+  | 'retrieval_strategy'
+  | 'plan'
+  | 'critique'
+  | 'postmortem';
+
+export type ReflectionOutcome = 'useful' | 'superseded' | 'rejected' | 'expired';
+
+export type ReflectionVisibility = 'private' | 'debug' | 'retrievable';
+
+export type ReflectionPromotionState = 'distilled' | 'promoted';
+
+export interface ReflectionSource {
+  uuid: string;
+  role?: 'primary' | 'supporting' | 'context';
+}
+
+export interface ReflectionTraceSource {
+  agent_run_id: string;
+  query_id?: string;
+  message_index?: number;
+}
+
+export interface ReflectionQuality {
+  confidence: 'high' | 'medium' | 'low';
+  reusability_score: number | null;
+}
+
 // v1.3 §7.2 — four triggers, all driven by librarian work cadence.
 export type TriggerType = 'on_ingest' | 'on_review' | 'on_query' | 'on_reflection' | 'explicit';
 
@@ -168,6 +199,14 @@ export interface NodeFrontmatter {
   review_payload?: ClusterReviewPayload;
   inheritance?: Inheritance;
   validation_state?: ValidationState;
+
+  // reflection only
+  reflection_subtype?: ReflectionSubtype;
+  reflection_sources?: ReflectionSource[];
+  trace_source?: ReflectionTraceSource;
+  outcome?: ReflectionOutcome;
+  visibility?: ReflectionVisibility;
+  promotion_state?: ReflectionPromotionState;
 }
 
 export interface Node extends NodeFrontmatter {
@@ -228,6 +267,13 @@ export interface CreateNodeInput {
   // cluster_review only
   review_payload?: ClusterReviewPayload;
   inheritance?: Inheritance;
+  // reflection only
+  reflection_subtype?: ReflectionSubtype;
+  reflection_sources?: ReflectionSource[];
+  trace_source?: ReflectionTraceSource;
+  outcome?: ReflectionOutcome;
+  visibility?: ReflectionVisibility;
+  promotion_state?: ReflectionPromotionState;
 }
 
 // ========== clustering ==========
