@@ -1,6 +1,7 @@
 import type { RegisterDeps } from './index.js';
 import type { NodeBrief, OpLogFilter, QueryLogEntry, QueryLogFilter } from '@kb/shared';
 import { search } from '../search/search.js';
+import { loadInsightInput, godNodes } from '../graph/insights.js';
 
 export function registerReadTools(deps: RegisterDeps) {
   const { registry, storage, db, embedding, index, params } = deps;
