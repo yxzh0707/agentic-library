@@ -159,6 +159,44 @@ e974469 feat: add Hermes Agent workflow tools v2.1
 
 ---
 
+## 七、v2.2：即插即用升级（2026-05-17）
+
+### 新增工具
+
+| 工具 | 功能 | 关键价值 |
+|------|------|---------|
+| `agent_onboarding` | Agent 接入的着陆页 | 任何外部 Agent 接进来的第一调用。返回 KB 快照 + 簇地图 + 核心知识 + 最近的 reflection + flag 队列概要 + 快速操作指南 |
+| `suggest_context` | 给定任务，自动搜索 + 建议上下文 | Agent 收到任务后先调这个，KB 自动帮它找到相关节点、过去的 reflection、同簇的待处理问题 |
+| `list_reflections` | 列出所有 reflection 节点 | 检查"之前有人思考过什么"，避免重复推理 |
+
+### deep_analyze 重构
+从绕过 quality gate 的裸 `storage.createNode` → 走 `synthesis.generateExplicit` 完整管道（compactness/novelty/self_rating 检查 + op_log 审计 + librarian 嵌入）
+
+### 即插即用体验验证
+
+```
+新 Agent 接入 → agent_onboarding →
+  "314 节点, 4 簇, 186 flag pending, 2 个 recent reflection, 6 条操作指南"
+  → suggest_context("我的任务是...") →
+  "找到 6 个相关节点 + 2 个可用 reflection"
+  → deep_analyze("...") → 完整深度分析 → 存回 KB
+  → create_reflection(...) → CoT trace 归档
+```
+
+### Git 版本
+```
+fbcfbff fix: add missing loadInsightInput import
+ca38b0c feat(v2.2): plug-and-play onboarding
+c0b0b0c docs: report + TAAC analysis
+e974469 feat: v2.1 tools
+ce86383 chore: baseline
+9a2b583 Initial commit
+```
+
+**回滚**: `git revert ca38b0c` 回滚 v2.2 改造，KB 数据不受影响。
+
+---
+
 ## 六、睡醒后可以做的事
 
 1. **看 flag 队列** — `cronjob action=list` 查看自治维护进展
