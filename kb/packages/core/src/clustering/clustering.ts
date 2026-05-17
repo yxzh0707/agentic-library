@@ -750,7 +750,92 @@ ${itemsText}
     return { formed: parsed.working_sets.length, assignments };
   }
 
-  async detectSubstructure(cluster_id: number): Promise<SubstructureResult> {
+  /** v2.3 — LLM-driven sub-clustering for oversized clusters.
+   *  HDBSCAN forms density-based clusters that can grow too large (100+) when
+   *  all content is semantically related. This method asks the LLM to read
+   *  member l0_summaries and suggest sub-themes, then executes the split.
+   *
+   *  Triggers when any cluster exceeds `maxSize` (default 60).
+   *  Returns sub-cluster IDs created. */
+  async splitOversizedClusters(maxSize = 60): Promise<{ cluster_id: number; sub_clusters: number; moved: number }[]> {
+    if (!this.llm) return [];
+    const oversized = this.db.prepare(
+      `SELECT c.cluster_id, c.member_count FROM clusters c 
+       WHERE c.status='active' AND c.member_count > ? 
+       ORDER BY c.member_count DESC`
+    ).all(maxSize) as { cluster_id: number; member_count: number }[];
+    if (oversized.length === 0) return [];
+
+    const results: { cluster_id: number; sub_clusters: number; moved: number }[] = [];
+    for (const cl of oversized) {
+      const members = this.db.prepare(
+        `SELECT uuid, l0_summary FROM nodes 
+         WHERE cluster_id=? AND status='active' AND node_type='raw'
+         ORDER BY created_at DESC LIMIT 80`
+      ).all(cl.cluster_id) as { uuid: string; l0_summary: string }[];
+      if (members.length < 10) continue;
+
+      // Ask LLM to suggest 2-5 sub-themes
+      const memberList = members.map((m, i) => `${i+1}. ${m.l0_summary.slice(0, 100)}`).join('\n');
+      const prompt = `Split this cluster of ${members.length} nodes into 2-4 sub-groups based on content themes. Each sub-group should have a short label and list of member indices (1-based). Return JSON: {"sub_groups": [{"label": "...", "members": [1,2,...]}, ...]}. Do NOT create a group for noise — leave dissimilar nodes unassigned.`;
+      const completion = await this.llm.chat({
+        messages: [
+          { role: 'system', content: 'You are a cluster refinement agent. Split an oversized cluster into thematic sub-groups.' },
+          { role: 'user', content: `${prompt}\n\nMembers:\n${memberList}` },
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2,
+      });
+      const raw = completion.choices[0]?.message?.content ?? '{}';
+      let parsed: { sub_groups?: { label: string; members: number[] }[] };
+      try { parsed = JSON.parse(raw); } catch { continue; }
+      if (!parsed.sub_groups || parsed.sub_groups.length < 2) continue;
+
+      // Create sub-clusters and reassign
+      const ts = nowIso();
+      const subIds: number[] = [];
+      const movedUuids: string[] = [];
+      const tx = this.db.transaction(() => {
+        for (const sg of parsed.sub_groups!) {
+          if (sg.members.length < 3) continue;
+          const nextId = (this.db.prepare('SELECT MAX(cluster_id)+1 AS n FROM clusters').get() as { n: number }).n;
+          this.db.prepare(
+            `INSERT INTO clusters (cluster_id, created_at, member_count, description, status)
+             VALUES (?, ?, ?, ?, 'active')`
+          ).run(nextId, ts, sg.members.length, sg.label);
+          for (const idx of sg.members) {
+            const uuid = members[idx - 1]?.uuid;
+            if (!uuid) continue;
+            this.db.prepare(
+              'UPDATE nodes SET cluster_id=?, cluster_membership_strength=0.8 WHERE uuid=?'
+            ).run(nextId, uuid);
+            movedUuids.push(uuid);
+          }
+          subIds.push(nextId);
+        }
+        // Archive original cluster
+        this.db.prepare(
+          "UPDATE clusters SET status='subdivided', description=description || ' (已拆分)' WHERE cluster_id=?"
+        ).run(cl.cluster_id);
+        // Re-assign remaining nodes to nearest sub-cluster or mark noise
+        const remaining = this.db.prepare(
+          `SELECT uuid FROM nodes WHERE cluster_id=? AND status='active' AND node_type='raw'`
+        ).all(cl.cluster_id) as { uuid: string }[];
+        for (const r of remaining) {
+          this.db.prepare('UPDATE nodes SET cluster_id=NULL, cluster_membership_strength=0 WHERE uuid=?').run(r.uuid);
+        }
+      });
+      tx();
+
+      for (const sid of subIds) this.refreshClusterCentroid(sid);
+      results.push({ cluster_id: cl.cluster_id, sub_clusters: subIds.length, moved: movedUuids.length });
+      logger.info({ cluster_id: cl.cluster_id, sub_clusters: subIds.length, moved: movedUuids.length },
+        'splitOversizedClusters: subdivided');
+    }
+    return results;
+  }
+
+  detectSubstructure(cluster_id: number): Promise<SubstructureResult> {
     const rows = this.db
       .prepare(
         "SELECT uuid, e_l1_id FROM nodes WHERE cluster_id=? AND status='active' AND node_type='raw' AND e_l1_id IS NOT NULL",

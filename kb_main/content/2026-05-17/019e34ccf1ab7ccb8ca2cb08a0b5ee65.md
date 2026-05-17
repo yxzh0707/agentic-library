@@ -14,10 +14,10 @@ embeddings:
   model: null
   embedded_at: null
 wikilinks: []
-current_path: null
+current_path: /cluster_2
 derived_state:
-  cluster_id: null
-  cluster_membership_strength: null
+  cluster_id: 2
+  cluster_membership_strength: 0.55
   is_cluster_hub: false
   hub_of_cluster: null
 lifecycle:
@@ -138,4 +138,5 @@ If production has additional fids (say fids 17, 67-79, 88), they may be Context 
 | Cross over `user_int_feats + item_int_feats + user_dense_feats` (stable attributes only, no uid/item_id) | Same, BUT first raise reader cap `max_user_int_feats: 48 → 256` and `max_item_int_feats: 16 → 64` so any production fids beyond demo's 46/14 actually flow in. After cap raise, RE-RUN data sanity check to confirm no regression. |
 
 This 2-line change adds **near-zero cost** but recovers any cap-masked features as a free side benefit before the bigger ML-DCN cross work.
+
 

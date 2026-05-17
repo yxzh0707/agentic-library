@@ -344,6 +344,16 @@ export class LibrarianAgent {
       try { rescued = await this.deps.clustering.rescueNoiseNodes(); if (rescued.rescued > 0) logger.info({ ...rescued }, 'monthly: rescued noise nodes'); } catch (err) { logger.warn({ err }, 'monthly: noise rescue failed'); }
       this.deps.clustering.recomputeHubs();
       this.deps.clustering.recomputeSynthesisDerivedState();
+      // v2.3: auto-split oversized clusters (>60 members)
+      try {
+        const splits = await this.deps.clustering.splitOversizedClusters(60);
+        if (splits.length > 0) {
+          this.deps.clustering.recomputeHubs();
+          this.deps.clustering.recomputeSynthesisDerivedState();
+          logger.info({ splits: splits.map((s) => `${s.cluster_id}→${s.sub_clusters} sub (${s.moved} moved)`) },
+            'monthly: auto-split oversized clusters');
+        }
+      } catch (err) { logger.warn({ err }, 'monthly: splitOversized failed'); }
       try { const sim = this.deps.clustering.persistClusterSimilarities(); logger.info({ ...sim }, 'monthly: similarity edges persisted'); } catch (err) { logger.warn({ err }, 'monthly: persistClusterSimilarities failed'); }
       let hierarchy = { parents_created: 0, children_attached: 0 };
       try { hierarchy = await this.deps.clustering.computeClusterHierarchy(); } catch (err) { logger.warn({ err }, 'monthly: meta-clustering failed'); }

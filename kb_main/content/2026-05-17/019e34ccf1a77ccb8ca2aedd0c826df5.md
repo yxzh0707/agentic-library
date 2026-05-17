@@ -14,10 +14,10 @@ embeddings:
   model: null
   embedded_at: null
 wikilinks: []
-current_path: null
+current_path: /cluster_2
 derived_state:
-  cluster_id: null
-  cluster_membership_strength: null
+  cluster_id: 2
+  cluster_membership_strength: 0.55
   is_cluster_hub: false
   hub_of_cluster: null
 lifecycle:
@@ -144,4 +144,5 @@ Recommended sequencing:
 2. If MC-MLCC KILL both → I-668 is P0; complete prerequisites 1+3+4 in justification template
 3. If MC-MLCC PROMOTE → I-668 stays P2; revisit only if I-665/I-666 follow-up sweep also exhausted
 4. Either way: prerequisite 1 (data feasibility) must be resolved FIRST — costs nothing to check, blocks everything if NO
+
 

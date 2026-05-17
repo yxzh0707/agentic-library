@@ -14,10 +14,10 @@ embeddings:
   model: null
   embedded_at: null
 wikilinks: []
-current_path: null
+current_path: /cluster_1
 derived_state:
-  cluster_id: null
-  cluster_membership_strength: null
+  cluster_id: 1
+  cluster_membership_strength: 0.55
   is_cluster_hub: false
   hub_of_cluster: null
 lifecycle:
@@ -143,4 +143,5 @@ I-675 AttnBias by per-position action_type: **LB 0.816233, -0.0093 vs I-670 SOTA
 | Auxiliary supervision | OPEN | label_time bucket aux (独家 leak-safe), Next Action loss |
 | Inference-side | OPEN | TTA, Pseudo-labeling test |
 | ESMM/PLE 多任务 | UNCERTAIN | 需 CTR signal 才有意义 |
+
 

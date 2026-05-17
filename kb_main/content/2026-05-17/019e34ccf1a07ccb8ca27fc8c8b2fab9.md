@@ -14,10 +14,10 @@ embeddings:
   model: null
   embedded_at: null
 wikilinks: []
-current_path: null
+current_path: /cluster_1
 derived_state:
-  cluster_id: null
-  cluster_membership_strength: null
+  cluster_id: 1
+  cluster_membership_strength: 0.55
   is_cluster_hub: false
   hub_of_cluster: null
 lifecycle:
@@ -116,4 +116,5 @@ lifecycle:
 ## 已闭轴 (cross-session, 不再尝试)
 
 详见 `closed_axes.md`。
+
 
