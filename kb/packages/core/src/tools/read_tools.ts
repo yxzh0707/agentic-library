@@ -475,14 +475,23 @@ export function registerReadTools(deps: RegisterDeps) {
         out.flag_queue = { pending: cts.pending, addressed: cts.addressed, dismissed: cts.dismissed };
       }
 
-      // 6. Quick-start guide
+      // 6. Quick-start guide (generated from available tools)
       out.quick_start = {
-        search: 'Use search_knowledge with your question to find relevant nodes.',
-        deep_analyze: 'Use deep_analyze to search + read + traverse + synthesize in one call.',
-        read: 'Use read_node with a UUID to get full content.',
-        traverse: 'Use traverse_graph from a UUID to explore related nodes.',
-        reflect: 'After solving a problem, call create_reflection to store your CoT trace.',
-        note: 'All tools listed via /api/agent/list_tools (POST with agent_id + api_key).',
+        overview: `KB has ${clusterCount} clusters, ${counts.total} active nodes.`,
+        recommended_first_steps: [
+          'Call suggest_context with your current task to find relevant nodes and past reflections.',
+          'Use deep_analyze for comprehensive search + read + traverse + synthesize.',
+          'After completing a task, call create_reflection to store your reasoning trace.',
+          'Use list_reflections to check if past thinking applies to your current problem.',
+        ],
+        common_tools: {
+          search: 'search_knowledge — semantic search across all nodes',
+          read: 'read_node — get full content by UUID',
+          traverse: 'traverse_graph — explore related nodes from a starting UUID',
+          analyze: 'deep_analyze — one-shot search + read + traverse + synthesize',
+          reflect: 'create_reflection — store CoT trace as permanent KB node',
+        },
+        note: `Full tool list: POST /api/agent/list_tools with agent_id + api_key. Total tools available: ${registry.list().length}.`,
       };
 
       return out;
