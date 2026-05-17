@@ -713,6 +713,57 @@ export function registerReadTools(deps: RegisterDeps) {
       };
     },
   });
+
+  registry.register({
+    name: 'what_changed',
+    description: '对比上次访问，返回新增/修改的节点、簇变化、新增的 reflection。Agent 每次启动后可以调用此工具了解 KB 的最新动态。since 参数为 ISO 时间戳。',
+    permission_tag: 'read',
+    parameters: {
+      type: 'object',
+      properties: {
+        since: { type: 'string', description: 'ISO 时间戳，返回此时间之后的变化。不填则返回最近 24 小时。' },
+        limit: { type: 'integer', default: 30 },
+      },
+    },
+    handler: async (args) => {
+      const since = String(args.since ?? new Date(Date.now() - 24 * 3600 * 1000).toISOString());
+      const limit = Number(args.limit ?? 30);
+
+      // New/updated nodes
+      const newNodeRows = db.prepare(
+        "SELECT uuid, node_type, l0_summary, created_at, cluster_id FROM nodes WHERE status='active' AND created_at >= ? ORDER BY created_at DESC LIMIT ?"
+      ).all(since, limit) as { uuid: string; node_type: string; l0_summary: string; created_at: string; cluster_id: number | null }[];
+      
+      const updatedNodeRows = db.prepare(
+        "SELECT uuid, node_type, l0_summary, updated_at, cluster_id FROM nodes WHERE status='active' AND updated_at > created_at AND updated_at >= ? ORDER BY updated_at DESC LIMIT ?"
+      ).all(since, Math.floor(limit / 2)) as { uuid: string; node_type: string; l0_summary: string; updated_at: string; cluster_id: number | null }[];
+
+      // New/modified clusters
+      const clusterRows = db.prepare(
+        "SELECT cluster_id, description, member_count, status, created_at FROM clusters WHERE created_at >= ? OR (status='subdivided' AND (SELECT MAX(created_at) FROM clusters c2 WHERE c2.cluster_id=clusters.cluster_id) >= ?) ORDER BY created_at DESC LIMIT 10"
+      ).all(since, since) as { cluster_id: number; description: string | null; member_count: number; status: string; created_at: string }[];
+
+      // New reflections
+      const reflRows = db.prepare(
+        "SELECT uuid, l0_summary, created_at FROM nodes WHERE node_type='reflection' AND status='active' AND created_at >= ? ORDER BY created_at DESC LIMIT 5"
+      ).all(since) as { uuid: string; l0_summary: string; created_at: string }[];
+
+      // Flag queue delta
+      const flagCreated = (db.prepare(
+        "SELECT COUNT(*) AS c FROM flag_queue WHERE flagged_at >= ? AND status='pending'"
+      ).get(since) as { c: number }).c;
+      
+      return {
+        since,
+        new_nodes: newNodeRows.map((r) => ({ uuid: r.uuid, type: r.node_type, summary: r.l0_summary.slice(0, 80), cluster: r.cluster_id })),
+        updated_nodes: updatedNodeRows.map((r) => ({ uuid: r.uuid, type: r.node_type, summary: r.l0_summary.slice(0, 80), cluster: r.cluster_id })),
+        cluster_changes: clusterRows.map((r) => ({ id: r.cluster_id, description: r.description, members: r.member_count, status: r.status })),
+        new_reflections: reflRows.map((r) => ({ uuid: r.uuid, summary: r.l0_summary })),
+        flag_changes: { new_pending: flagCreated },
+        summary: `${newNodeRows.length} new nodes, ${updatedNodeRows.length} updated, ${clusterRows.length} cluster changes, ${reflRows.length} new reflections since ${since.slice(0, 16)}`,
+      };
+    },
+  });
 }
 
 interface RawQueryRow {
