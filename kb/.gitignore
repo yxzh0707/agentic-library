@@ -12,3 +12,4 @@ packages/*/.turbo
 .vite
 .cache
 *.tsbuildinfo
+.env
