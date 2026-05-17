@@ -2,22 +2,22 @@
 uuid: 019e34cc-f18c-7ccb-8ca2-01efb244cdba
 node_type: raw
 created_at: 2026-05-17T07:18:26.956Z
-updated_at: 2026-05-17T07:21:29.548Z
+updated_at: 2026-05-17T08:00:15.606Z
 created_by: human:default
 created_by_run: import:markdown:meta.md
 l0_summary: 记录低秩双线性交叉融合类别热编码与时间特征的模型实验。
 l1_overview: 笔记描述一个新模型模块(CateTimeCross)，通过低秩双线性(秩-8 Hadamard积)显式交叉两个已证明有效的稠密特征：类别热编码(OOF)和时间gap特征(Fourier)。该交叉不引入新稀疏嵌入，参数仅2601，满足匿名化、非集成、低延迟等约束。笔记设定提升决策阈值(LB AUC≥0.826推荐晋级)，并规划超参数扫描与扩展动作。
 embeddings:
-  e_l0_id: null
-  e_l1_id: null
+  e_l0_id: 501
+  e_l1_id: 501
   e_l2_id: null
-  model: null
-  embedded_at: null
+  model: BAAI/bge-m3
+  embedded_at: 2026-05-17T08:00:05.701Z
 wikilinks: []
-current_path: null
+current_path: /cluster_1
 derived_state:
-  cluster_id: null
-  cluster_membership_strength: null
+  cluster_id: 1
+  cluster_membership_strength: 0.7486349487545376
   is_cluster_hub: false
   hub_of_cluster: null
 lifecycle:
@@ -26,6 +26,17 @@ lifecycle:
   last_accessed_at: null
   superseded_by: null
   superseded_reason: null
+hub_role:
+  value: leaf
+  source: auto_detected
+  reason: 该节点是对已有子话题（特征交叉）的具体实验实现，不定义新子方向。
+  history:
+    - changed_at: 2026-05-17T08:00:15.606Z
+      from: neutral
+      to: leaf
+      changed_by: agent:librarian
+      op_id: 019e34f3-38f1-7cc9-94de-e98b39856617
+      reason: 该节点是对已有子话题（特征交叉）的具体实验实现，不定义新子方向。
 ---
 
 # I-671_cate_x_time_cross
@@ -88,4 +99,7 @@ constraints_compliance:
   F2_no_id_dep: yes (cross does NOT touch user_id or item_id learned embeddings)
   F3_bce_unchanged: yes
 ```
+
+
+
 

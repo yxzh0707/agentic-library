@@ -363,21 +363,34 @@ export class LibrarianAgent {
     }
   }
 
-  async runBackgroundPass(): Promise<{ processed: number; auto_moves: number }> {
+  async runBackgroundPass(): Promise<{ processed: number; auto_moves: number; noise_rescued: number }> {
     const { run_id, ctx } = this.startRun('background_pass');
-    let processed = 0, auto_moves = 0;
+    let processed = 0, auto_moves = 0, noise_rescued = 0;
     try {
+      // 1. Process flag queue
       const pending = this.deps.flagQueue.list({ status: 'pending', flag_type: 'specific_issue', limit: 20 });
       for (const flag of pending) {
         try { const opId = await this.handleSpecificIssue(flag, ctx); if (opId) { this.deps.flagQueue.markAddressed(flag.flag_id, opId); processed++; } } catch (err) { logger.warn({ err, flag_id: flag.flag_id }, 'background_pass: flag handler failed'); }
       }
+      // 2. Consume cluster_review move_outs
       auto_moves = await this.consumeClusterReviewMoveOuts(ctx);
-      this.finishRun(run_id, 'completed', `processed ${processed}/${pending.length} flags; auto-moved ${auto_moves}`);
-      return { processed, auto_moves };
+      // 3. Auto-rescue noise nodes (v2.3): detect and assign unclustered embedded nodes
+      try {
+        const rescueResult = await this.deps.clustering.rescueNoiseNodes({ maxBudget: 30 });
+        noise_rescued = rescueResult.rescued;
+        if (noise_rescued > 0) {
+          logger.info({ rescued: noise_rescued, declined: rescueResult.declined },
+            'background_pass: auto-rescued noise nodes');
+        }
+      } catch (err) {
+        logger.warn({ err }, 'background_pass: noise rescue failed');
+      }
+      this.finishRun(run_id, 'completed', `processed ${processed}/${pending.length} flags; auto-moved ${auto_moves}; noise-rescued ${noise_rescued}`);
+      return { processed, auto_moves, noise_rescued };
     } catch (err) {
       logger.error({ err }, 'background_pass failed');
       this.finishRun(run_id, 'failed', (err as Error).message);
-      return { processed, auto_moves };
+      return { processed, auto_moves, noise_rescued };
     }
   }
 

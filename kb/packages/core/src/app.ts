@@ -103,7 +103,7 @@ export async function initApp(config: KBConfig): Promise<AppContext> {
   // ===== Embedding worker (v1.3 §5.1: 2 layers only) =====
   const worker = startEmbeddingWorker({
     embedding,
-    pendingUuids: () => storage.pendingEmbeddingUuids(50),
+    pendingUuids: () => storage.pendingEmbeddingUuids(0),  // 0 = all pending, no artificial cap
     embedNode: async (uuid) => {
       const node = storage.readNode(uuid);
       if (!node) return;
@@ -118,10 +118,29 @@ export async function initApp(config: KBConfig): Promise<AppContext> {
         model: config.embedding.model,
       });
       if (node.node_type === 'raw') {
+        let assigned = false;
         try {
-          await clustering.incrementalAssign(uuid);
+          const result = await clustering.incrementalAssign(uuid);
+          assigned = result.cluster_id !== null;
         } catch (err) {
           logger.warn({ err, uuid }, 'incrementalAssign failed');
+        }
+        // Auto-recluster guard: if this is the last node in a batch and many
+        // are noise, auto-trigger to prevent permanent orphan accumulation.
+        if (!assigned && pendingCount <= 1) {
+          const noiseCount = (db.prepare(
+            "SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND node_type='raw' AND e_l1_id IS NOT NULL AND cluster_id IS NULL"
+          ).get() as { c: number }).c;
+          const totalEmbedded = (db.prepare(
+            "SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND node_type='raw' AND e_l1_id IS NOT NULL"
+          ).get() as { c: number }).c;
+          if (totalEmbedded > 10 && noiseCount / totalEmbedded > 0.20) {
+            logger.info({ noiseCount, totalEmbedded, ratio: noiseCount/totalEmbedded },
+              'high noise ratio detected after embedding batch — triggering auto recluster');
+            try { await clustering.rescueNoiseNodes({ maxBudget: 50 }); } catch (err) { 
+              logger.warn({ err }, 'auto rescueNoiseNodes failed'); 
+            }
+          }
         }
         // v1.3 §5.1: incremental assign 完成后立即触发 on_ingest
         try {

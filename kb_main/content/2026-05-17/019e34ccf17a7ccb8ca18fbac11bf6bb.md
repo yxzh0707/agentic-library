@@ -2,22 +2,22 @@
 uuid: 019e34cc-f17a-7ccb-8ca1-8fbac11bf6bb
 node_type: raw
 created_at: 2026-05-17T07:18:26.938Z
-updated_at: 2026-05-17T07:20:51.366Z
+updated_at: 2026-05-17T07:52:37.266Z
 created_by: human:default
 created_by_run: import:markdown:meta.md
 l0_summary: I-647：实时用户序列聚合特征（16维），无OOV，预期AUC+0.002
 l1_overview: 实验I-647在PCVRHyFormer的user_dense通道新增16维用户历史序列实时聚合特征（4域×4统计：总事件数、近1d/7d事件数、时间跨度），以显式提供用户活跃度信号，弥补attention隐式学习因冷启动重置的不足。特征完全基于batch内PIT时间戳计算，无OOV风险，与I-625 gap特征数据流向一致。预期AUC从0.8229提升至0.825，属于small-features-stacking策略，后续可扩展更多统计。当前状态ready_for_taiji，需评估后决定promote/neutral/kill。
 embeddings:
-  e_l0_id: null
-  e_l1_id: null
+  e_l0_id: 486
+  e_l1_id: 486
   e_l2_id: null
-  model: null
-  embedded_at: null
+  model: BAAI/bge-m3
+  embedded_at: 2026-05-17T07:52:26.327Z
 wikilinks: []
-current_path: null
+current_path: /cluster_2
 derived_state:
-  cluster_id: null
-  cluster_membership_strength: null
+  cluster_id: 2
+  cluster_membership_strength: 0.7841282055516403
   is_cluster_hub: false
   hub_of_cluster: null
 lifecycle:
@@ -26,6 +26,17 @@ lifecycle:
   last_accessed_at: null
   superseded_by: null
   superseded_reason: null
+hub_role:
+  value: leaf
+  source: auto_detected
+  reason: 该节点是具体特征实验，属于已有的用户序列特征子方向，并未定义新的子话题，而是对现有方向的扩展。
+  history:
+    - changed_at: 2026-05-17T07:52:37.266Z
+      from: neutral
+      to: leaf
+      changed_by: agent:librarian
+      op_id: 019e34ec-3a90-7cc9-94dd-f4a191835265
+      reason: 该节点是具体特征实验，属于已有的用户序列特征子方向，并未定义新的子话题，而是对现有方向的扩展。
 ---
 
 # I-647_user_seq_agg
@@ -138,4 +149,7 @@ next_actions:
 
 ## Outcome
 (待 eval 后填写)
+
+
+
 
