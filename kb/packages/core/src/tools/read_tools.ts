@@ -73,22 +73,24 @@ export function registerReadTools(deps: RegisterDeps) {
         if (Object.keys(contextMap).length > 0) out.context = contextMap;
       }
 
-      // Optional: flag contradictions
+      // Optional: flag contradictions (deduplicated by UUID)
       if (args.include_contradictions) {
         const raw = (result as any)?.raw ?? [];
         const contradictions: { uuid: string; issue: string }[] = [];
+        const seenUuids = new Set<string>();
         for (const h of raw.slice(0, 15)) {
+          if (seenUuids.has(h.uuid)) continue;
+          seenUuids.add(h.uuid);
           const node = storage.readNode(h.uuid);
           if (!node) continue;
           const body = node.body.slice(0, 3000);
           const hasKill = /KILL|kill/.test(body);
-          const highLB = /LB\s*[:：]?\s*(0\.8[2-9]\d+)/.test(body);
-          if (hasKill && highLB) {
-            contradictions.push({ uuid: h.uuid, issue: '标记为KILL但LB≥0.82——可能是旧SOTA被后来的实验覆盖而非真正失败' });
-          }
           const hasPromote = /PROMOTE|promote|提升|新基线/.test(body);
+          const highLB = /LB\s*[:：]?\s*(0\.8[2-9]\d+)/.test(body);
           if (hasKill && hasPromote) {
-            contradictions.push({ uuid: h.uuid, issue: '同时包含KILL和PROMOTE标记——可能实验结论有歧义' });
+            contradictions.push({ uuid: h.uuid, issue: '同时包含KILL和PROMOTE——实验结论有歧义' });
+          } else if (hasKill && highLB) {
+            contradictions.push({ uuid: h.uuid, issue: '标记KILL但LB≥0.82——可能是旧SOTA被覆盖' });
           }
         }
         if (contradictions.length > 0) out.contradictions = contradictions;
