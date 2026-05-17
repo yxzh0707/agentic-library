@@ -1,16 +1,30 @@
 {
-  "name": "knowledge-base",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Local-first, agent-oriented, self-organizing knowledge base",
+  "name": "agentic-library",
+  "version": "2.5.0",
+  "private": false,
+  "description": "Agent-oriented self-organizing knowledge base. Any agent connects via REST API.",
   "packageManager": "pnpm@9.12.0",
+  "bin": {
+    "agentic-library": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "packages/",
+    "scripts/install.sh",
+    "pnpm-workspace.yaml",
+    "pnpm-lock.yaml",
+    "tsconfig.base.json",
+    "README.md"
+  ],
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "lint": "pnpm -r run lint",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "start": "tsx packages/core/src/index.ts",
+    "prepublishOnly": "pnpm build"
   },
   "devDependencies": {
     "typescript": "^5.6.2",
