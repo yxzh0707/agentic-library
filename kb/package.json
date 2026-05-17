@@ -1,5 +1,5 @@
 {
-  "name": "agentic-library",
+  "name": "@zyx0707/agentic-library",
   "version": "2.5.0",
   "private": false,
   "description": "Agent-oriented self-organizing knowledge base. Any agent connects via REST API.",
