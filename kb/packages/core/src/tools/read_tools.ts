@@ -8,8 +8,12 @@ export function registerReadTools(deps: RegisterDeps) {
 
   registry.register({
     name: 'search_knowledge',
-    description:
-      '在知识库中检索相关节点。三阶段:并行 KNN(raw + 非 cluster_review synthesis) → top-K 多簇扩展 → l1 距离排序。',
+    description: `在知识库中检索相关节点。三阶段:并行 KNN → 多簇扩展 → l1 距离排序。
+
+深度选项(默认关闭,浅搜索更快):
+  group_by_cluster=true → 结果按簇分组,一眼看到知识结构
+  include_context=true    → 附带相关 synthesis 节点和 wikilink 引用
+  include_contradictions=true → 标记相互矛盾的节点(如KILL但高分)`,
     permission_tag: 'read',
     parameters: {
       type: 'object',
@@ -17,6 +21,9 @@ export function registerReadTools(deps: RegisterDeps) {
         query: { type: 'string' },
         k_raw: { type: 'integer', default: 10 },
         k_synthesis: { type: 'integer', default: 5 },
+        group_by_cluster: { type: 'boolean', default: false, description: '按簇分组返回,适合需要了解知识结构时' },
+        include_context: { type: 'boolean', default: false, description: '附带每个节点的 synthesis 引用和 wikilink 邻居' },
+        include_contradictions: { type: 'boolean', default: false, description: '标记返回节点中的矛盾(如KILL但高分)' },
       },
       required: ['query'],
     },
@@ -24,7 +31,70 @@ export function registerReadTools(deps: RegisterDeps) {
       const query = String(args.query);
       const k_raw = Number(args.k_raw ?? 10);
       const k_synthesis = Number(args.k_synthesis ?? 5);
-      return await search({ db, storage, embedding, index, params }, query, k_raw, k_synthesis, ctx);
+      const result = await search({ db, storage, embedding, index, params }, query, k_raw, k_synthesis, ctx);
+
+      const out: Record<string, unknown> = { ...(result as Record<string, unknown>) };
+
+      // Optional: group by cluster
+      if (args.group_by_cluster) {
+        const raw = (result as any)?.raw ?? [];
+        const synth = (result as any)?.synthesis ?? [];
+        const groups: Record<string, { cluster_id: number | null; description: string; members: unknown[] }> = {};
+        for (const h of [...raw, ...synth]) {
+          const cid = h.cluster_id ?? null;
+          const key = `cluster_${cid ?? 'noise'}`;
+          if (!groups[key]) {
+            const desc = cid ? ((db.prepare('SELECT description FROM clusters WHERE cluster_id=?').get(cid) as any)?.description ?? '?') : '未归类';
+            groups[key] = { cluster_id: cid, description: desc, members: [] };
+          }
+          groups[key].members.push(h);
+        }
+        out.grouped = Object.values(groups);
+      }
+
+      // Optional: include context (synthesis links + wikilinks)
+      if (args.include_context) {
+        const raw = (result as any)?.raw ?? [];
+        const contextMap: Record<string, { synthesis_refs: unknown[]; wikilinks: unknown[] }> = {};
+        for (const h of raw.slice(0, 8)) {
+          const synths = db.prepare(
+            "SELECT s.synthesis_uuid, n.l0_summary FROM synthesis_sources s JOIN nodes n ON n.uuid=s.synthesis_uuid WHERE s.source_uuid=? AND n.status='active' LIMIT 3"
+          ).all(h.uuid) as { synthesis_uuid: string; l0_summary: string }[];
+          const links = db.prepare(
+            "SELECT target_uuid, (SELECT l0_summary FROM nodes WHERE uuid=target_uuid) as l0 FROM wikilinks WHERE source_uuid=? LIMIT 5"
+          ).all(h.uuid) as { target_uuid: string; l0: string | null }[];
+          if (synths.length > 0 || links.length > 0) {
+            contextMap[h.uuid] = {
+              synthesis_refs: synths.map((s) => ({ uuid: s.synthesis_uuid, summary: s.l0_summary })),
+              wikilinks: links.map((l) => ({ uuid: l.target_uuid, summary: l.l0 })),
+            };
+          }
+        }
+        if (Object.keys(contextMap).length > 0) out.context = contextMap;
+      }
+
+      // Optional: flag contradictions
+      if (args.include_contradictions) {
+        const raw = (result as any)?.raw ?? [];
+        const contradictions: { uuid: string; issue: string }[] = [];
+        for (const h of raw.slice(0, 15)) {
+          const node = storage.readNode(h.uuid);
+          if (!node) continue;
+          const body = node.body.slice(0, 3000);
+          const hasKill = /KILL|kill/.test(body);
+          const highLB = /LB\s*[:：]?\s*(0\.8[2-9]\d+)/.test(body);
+          if (hasKill && highLB) {
+            contradictions.push({ uuid: h.uuid, issue: '标记为KILL但LB≥0.82——可能是旧SOTA被后来的实验覆盖而非真正失败' });
+          }
+          const hasPromote = /PROMOTE|promote|提升|新基线/.test(body);
+          if (hasKill && hasPromote) {
+            contradictions.push({ uuid: h.uuid, issue: '同时包含KILL和PROMOTE标记——可能实验结论有歧义' });
+          }
+        }
+        if (contradictions.length > 0) out.contradictions = contradictions;
+      }
+
+      return out;
     },
   });
 
@@ -510,12 +580,13 @@ export function registerReadTools(deps: RegisterDeps) {
           'Use list_reflections to check if past thinking applies to your current problem.',
         ],
         common_tools: {
-          search: 'search_knowledge — semantic search across all nodes',
-          read: 'read_node — get full content by UUID',
+          search: 'search_knowledge — semantic search. Depth options: group_by_cluster, include_context, include_contradictions (default false = fast)',
+          batch_read: 'batch_read — read up to 50 nodes in one API call',
           traverse: 'traverse_graph — explore related nodes from a starting UUID',
           analyze: 'deep_analyze — one-shot search + read + traverse + synthesize',
           reflect: 'create_reflection — store CoT trace as permanent KB node',
         },
+        search_depth_hint: 'For quick lookup: search_knowledge(query). For deep thinking: add group_by_cluster=true, include_context=true, include_contradictions=true.',
         note: `Full tool list: POST /api/agent/list_tools with agent_id + api_key. Total tools available: ${registry.list().length}.`,
       };
 
