@@ -549,14 +549,15 @@ export function registerReadTools(deps: RegisterDeps) {
       // Get related cluster IDs
       const clusterIds = new Set<number>();
       const seen = new Set<string>();
-      const suggestions: Array<{ type: string; uuid: string; summary: string }> = [];
+      const nodeSuggestions: Array<{ type: string; uuid: string; summary: string }> = [];
+      const reflectionSuggestions: Array<{ type: string; uuid: string; summary: string }> = [];
       
       for (const h of [...rawHits, ...synthHits]) {
         if (!h.uuid || seen.has(h.uuid)) continue;
         seen.add(h.uuid);
         const node = storage.readNode(h.uuid);
         if (node && node.derived_state?.cluster_id) clusterIds.add(node.derived_state.cluster_id);
-        suggestions.push({ type: 'node', uuid: h.uuid, summary: h.l0_summary || node?.l0_summary || '' });
+        nodeSuggestions.push({ type: 'node', uuid: h.uuid, summary: h.l0_summary || node?.l0_summary || '' });
       }
       
       // Search for related reflections — embedding similarity first, time-sort fallback
@@ -588,7 +589,7 @@ export function registerReadTools(deps: RegisterDeps) {
         scored.sort((a, b) => b.score - a.score);
         for (const r of scored.slice(0, 8)) {
           if (seen.has(r.uuid)) continue;
-          suggestions.push({ type: 'reflection', uuid: r.uuid, summary: r.l0_summary });
+          reflectionSuggestions.push({ type: 'reflection', uuid: r.uuid, summary: r.l0_summary });
         }
       }
       
@@ -597,11 +598,13 @@ export function registerReadTools(deps: RegisterDeps) {
         for (const cid of [...clusterIds].slice(0, 3)) {
           const flags = deps.flagQueue.list({ cluster_id: cid, status: 'pending', limit: 3 });
           for (const f of flags) {
-            suggestions.push({ type: 'flag', uuid: f.flag_id, summary: `[${f.flag_type}] ${f.description?.slice(0, 80)}` });
+            nodeSuggestions.push({ type: 'flag', uuid: f.flag_id, summary: `[${f.flag_type}] ${f.description?.slice(0, 80)}` });
           }
         }
       }
       
+      // Reflections first, then nodes — so past thinking always surfaces
+      const suggestions = [...reflectionSuggestions, ...nodeSuggestions];
       return {
         task,
         suggestions: suggestions.slice(0, k),
