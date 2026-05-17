@@ -559,21 +559,32 @@ export function registerReadTools(deps: RegisterDeps) {
         suggestions.push({ type: 'node', uuid: h.uuid, summary: h.l0_summary || node?.l0_summary || '' });
       }
       
-      // Search for related reflections — ranked by task relevance
-      if (args.include_reflections !== false) {
-        const taskWords = new Set(task.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2));
-        const reflRows = db.prepare("SELECT uuid, l0_summary FROM nodes WHERE node_type='reflection' AND status='active'").all() as { uuid: string; l0_summary: string }[];
-        // Score by word overlap with task
-        const scored = reflRows.map((r) => {
-          const text = r.l0_summary.toLowerCase();
-          let score = 0;
-          for (const w of taskWords) if (text.includes(w)) score++;
-          return { ...r, score };
-        });
-        scored.sort((a, b) => b.score - a.score);
-        for (const r of scored.slice(0, 8)) {
-          if (seen.has(r.uuid)) continue;
-          suggestions.push({ type: 'reflection', uuid: r.uuid, summary: r.l0_summary });
+      // Search for related reflections — ranked by embedding similarity to task
+      if (args.include_reflections !== false && embedding) {
+        const reflRows = db.prepare("SELECT uuid, l0_summary, e_l1_id FROM nodes WHERE node_type='reflection' AND status='active' AND e_l1_id IS NOT NULL").all() as { uuid: string; l0_summary: string; e_l1_id: number }[];
+        if (reflRows.length > 0) {
+          try {
+            const taskVec = await embedding.embedOne(task);
+            if (taskVec.length > 0) {
+              const scored = reflRows.map((r) => {
+                const rv = index.getVector('l1', r.e_l1_id);
+                if (!rv) return { ...r, score: 0 };
+                let dot = 0, na = 0, nb = 0;
+                for (let i = 0; i < Math.min(taskVec.length, rv.length); i++) {
+                  dot += (taskVec[i] ?? 0) * (rv[i] ?? 0);
+                  na += (taskVec[i] ?? 0) * (taskVec[i] ?? 0);
+                  nb += (rv[i] ?? 0) * (rv[i] ?? 0);
+                }
+                const sim = (na > 0 && nb > 0) ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0;
+                return { ...r, score: sim };
+              });
+              scored.sort((a, b) => b.score - a.score);
+              for (const r of scored.slice(0, 8)) {
+                if (seen.has(r.uuid)) continue;
+                suggestions.push({ type: 'reflection', uuid: r.uuid, summary: r.l0_summary, relevance: r.score.toFixed(3) });
+              }
+            }
+          } catch { /* embedding failed, skip reflections */ }
         }
       }
       
