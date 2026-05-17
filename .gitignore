@@ -1,0 +1,7 @@
+kb_main/
+.env
+node_modules/
+*.sqlite*
+*.lock
+config.json
+.DS_Store
