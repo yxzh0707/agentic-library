@@ -356,6 +356,22 @@ export class LibrarianAgent {
       try { const sim = this.deps.clustering.persistClusterSimilarities(); logger.info({ ...sim }, 'monthly: similarity edges persisted'); } catch (err) { logger.warn({ err }, 'monthly: persistClusterSimilarities failed'); }
       let hierarchy = { parents_created: 0, children_attached: 0 };
       try { hierarchy = await this.deps.clustering.computeClusterHierarchy(); } catch (err) { logger.warn({ err }, 'monthly: meta-clustering failed'); }
+      // Auto-fill cluster descriptions for clusters without one
+      try {
+        const noDesc = this.deps.db.prepare(
+          "SELECT cluster_id FROM clusters WHERE status='active' AND (description IS NULL OR description='')"
+        ).all() as { cluster_id: number }[];
+        for (const c of noDesc) {
+          const members = this.deps.db.prepare(
+            "SELECT l0_summary FROM nodes WHERE cluster_id=? AND status='active' AND node_type='raw' LIMIT 5"
+          ).all(c.cluster_id) as { l0_summary: string }[];
+          if (members.length > 0) {
+            const desc = members.map((m) => m.l0_summary.slice(0, 40)).join(' | ');
+            this.deps.db.prepare('UPDATE clusters SET description=? WHERE cluster_id=?').run(desc.slice(0, 200), c.cluster_id);
+          }
+        }
+        if (noDesc.length > 0) logger.info({ count: noDesc.length }, 'monthly: auto-filled cluster descriptions');
+      } catch (err) { logger.warn({ err }, 'monthly: auto-desc failed'); }
       const cutoff = daysAgo(60);
       const stale = this.deps.db.prepare("SELECT uuid FROM nodes WHERE node_type='synthesis' AND status='active' AND reference_count = 0 AND created_at <= ?").all(cutoff) as { uuid: string }[];
       for (const s of stale) this.deps.storage.archiveNode(s.uuid, 'unused for 60 days');

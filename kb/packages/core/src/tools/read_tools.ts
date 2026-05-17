@@ -66,6 +66,31 @@ export function registerReadTools(deps: RegisterDeps) {
   });
 
   registry.register({
+    name: 'batch_read',
+    description: '批量读取多个节点的完整内容。一次调用返回所有节点，节省 HTTP 往返。是深度分析时最常用的工具。',
+    permission_tag: 'read',
+    parameters: {
+      type: 'object',
+      properties: {
+        uuids: { type: 'array', items: { type: 'string' }, description: '要读取的 UUID 列表' },
+        include_body: { type: 'boolean', default: true },
+      },
+      required: ['uuids'],
+    },
+    handler: async (args) => {
+      const uuids = Array.isArray(args.uuids) ? args.uuids.map(String) : [];
+      const include_body = args.include_body !== false;
+      const nodes: Record<string, unknown>[] = [];
+      for (const uuid of uuids.slice(0, 50)) {
+        const node = storage.readNode(uuid);
+        if (!node) continue;
+        nodes.push(include_body ? node : { ...node, body: undefined });
+      }
+      return { nodes, total: nodes.length, requested: uuids.length };
+    },
+  });
+
+  registry.register({
     name: 'list_nodes',
     description: '列出节点,支持按 node_type、cluster_id、status、hub_role、synthesis_subtype 过滤。',
     permission_tag: 'read',
@@ -534,10 +559,19 @@ export function registerReadTools(deps: RegisterDeps) {
         suggestions.push({ type: 'node', uuid: h.uuid, summary: h.l0_summary || node?.l0_summary || '' });
       }
       
-      // Search for related reflections
+      // Search for related reflections — ranked by task relevance
       if (args.include_reflections !== false) {
-        const reflRows = db.prepare("SELECT uuid, l0_summary FROM nodes WHERE node_type='reflection' AND status='active' ORDER BY created_at DESC LIMIT 20").all() as { uuid: string; l0_summary: string }[];
-        for (const r of reflRows) {
+        const taskWords = new Set(task.toLowerCase().split(/\s+/).filter((w: string) => w.length > 2));
+        const reflRows = db.prepare("SELECT uuid, l0_summary FROM nodes WHERE node_type='reflection' AND status='active'").all() as { uuid: string; l0_summary: string }[];
+        // Score by word overlap with task
+        const scored = reflRows.map((r) => {
+          const text = r.l0_summary.toLowerCase();
+          let score = 0;
+          for (const w of taskWords) if (text.includes(w)) score++;
+          return { ...r, score };
+        });
+        scored.sort((a, b) => b.score - a.score);
+        for (const r of scored.slice(0, 8)) {
           if (seen.has(r.uuid)) continue;
           suggestions.push({ type: 'reflection', uuid: r.uuid, summary: r.l0_summary });
         }
