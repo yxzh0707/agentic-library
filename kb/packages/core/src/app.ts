@@ -125,9 +125,12 @@ export async function initApp(config: KBConfig): Promise<AppContext> {
         } catch (err) {
           logger.warn({ err, uuid }, 'incrementalAssign failed');
         }
-        // Auto-recluster guard: if this is the last node in a batch and many
-        // are noise, auto-trigger to prevent permanent orphan accumulation.
-        if (!assigned && pendingCount <= 1) {
+        // Auto-recluster guard: after embedding, check if noise ratio is too high.
+        // Skip the check most of the time — only run every 10th node.
+        const nodeCount = (db.prepare(
+          "SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND node_type='raw' AND e_l1_id IS NOT NULL"
+        ).get() as { c: number }).c;
+        if (!assigned && nodeCount % 10 === 0) {
           const noiseCount = (db.prepare(
             "SELECT COUNT(*) AS c FROM nodes WHERE status='active' AND node_type='raw' AND e_l1_id IS NOT NULL AND cluster_id IS NULL"
           ).get() as { c: number }).c;
