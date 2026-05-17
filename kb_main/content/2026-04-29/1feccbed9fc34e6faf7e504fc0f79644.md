@@ -14,10 +14,10 @@ embeddings:
   model: BAAI/bge-m3
   embedded_at: 2026-04-29T08:14:14.192Z
 wikilinks: []
-current_path: /cluster_1
+current_path: /cluster_28
 derived_state:
-  cluster_id: 1
-  cluster_membership_strength: 0.6814549139211905
+  cluster_id: 28
+  cluster_membership_strength: 0.55
   is_cluster_hub: false
   hub_of_cluster: null
 lifecycle:
@@ -103,6 +103,7 @@ Attention 形式：standard MHA + causal mask（消融发现 full attention 几�
 1. token 化层（NS group-wise + 序列 timestamp-aware）+ 共享/独占参数规则——这是"统一 block"的最小可行落地
 2. 服务侧把 S/NS 拆两阶段，KV cache 复用——这是把"同构主干"做到延迟可控的关键
 3. 不要被"causal vs full"消磨注意力——消融差 0.01%，但 causal 解锁了 cache，工程价值远大于精度
+
 
 
 

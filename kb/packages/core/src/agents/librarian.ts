@@ -41,13 +41,12 @@ export class LibrarianAgent {
   private isProblemStatement(l0: string, body: string): boolean {
     const text = `${l0} ${(body ?? '').slice(0, 3000)}`.toLowerCase();
     const hints = [
-      '赛题', '原题', 'benchmark', 'kdd cup', '比赛', '竞赛',
       '任务描述', '任务要求', '评测标准', '数据集格式',
-      'task description', 'problem statement', 'official',
-      '比赛说明', '赛题说明', '官方题目',
+      'task description', 'problem statement', 'overview', '概述',
+      'specification', 'requirements', '项目说明', '背景',
     ];
     const score = hints.filter((h) => text.includes(h)).length;
-    return score >= 2 || /赛题|原题|KDD|benchmark|Task|Problem Statement/i.test(l0);
+    return score >= 2 || /problem statement|overview|概述|spec/i.test(l0);
   }
 
   private startRun(run_type: AgentRunType): { run_id: string; ctx: ToolContext } {
