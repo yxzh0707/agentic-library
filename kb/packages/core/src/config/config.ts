@@ -43,7 +43,7 @@ if (envPath) {
 }
 
 function defaultDataDir(): string {
-  return process.env[CONFIG_ENV] ?? path.join(os.homedir(), 'Downloads', 'kb_main');
+  return process.env[CONFIG_ENV] ?? path.join(os.homedir(), '.agentic-library', 'data');
 }
 
 function envStr(key: string): string | undefined {

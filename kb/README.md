@@ -6,15 +6,25 @@
 
 ```bash
 # 1. 安装
-bash scripts/install.sh
+npm install -g @zyx0707/agentic-library
 
-# 2. 编辑 .env，填入你的 LLM + Embedding API key
-#    LLM_API_KEY=sk-xxx
-#    EMBEDDING_API_KEY=sk-xxx
+# 2. 配置（交互式，填入你的 LLM + Embedding API key）
+agentic-library init
 
 # 3. 启动
-pnpm start
+agentic-library start
 # → http://localhost:7823
+```
+
+```bash
+# 或者看当前配置
+agentic-library config
+
+# 导入文件
+agentic-library import ./my-docs/
+
+# 查看状态
+agentic-library status
 ```
 
 ## 任何 Agent 三步接入
@@ -84,23 +94,22 @@ Agent (Hermes / Claude Code / OpenClaw / ...)
 ## 依赖
 
 - Node.js ≥ 20
-- pnpm 9+
-- Python 3.10+ (umap-learn, hdbscan, scikit-learn, numpy)
-- LLM API (OpenAI-compatible)
-- Embedding API (OpenAI-compatible)
+- Python 3.10+（可选，用于聚类。如缺失，搜索/读写仍正常工作）
+  - 如需聚类: `pip3 install umap-learn hdbscan scikit-learn numpy`
 
 ## 配置
 
-`.env`:
+`agentic-library init` 生成 `.env`:
+
 ```
 LLM_BASE_URL=https://api.deepseek.com
 LLM_API_KEY=sk-xxx
-LLM_CHAT_MODEL=deepseek-v4-flash
+LLM_CHAT_MODEL=deepseek-chat
 EMBEDDING_BASE_URL=https://api.siliconflow.cn/v1
 EMBEDDING_API_KEY=sk-xxx
 EMBEDDING_MODEL=BAAI/bge-m3
 EMBEDDING_DIM=1024
-KB_DATA_DIR=/path/to/data
+KB_DATA_DIR=~/.agentic-library/data
 ```
 
 ## 安全
