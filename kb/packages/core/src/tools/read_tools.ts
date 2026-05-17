@@ -340,113 +340,241 @@ export function registerReadTools(deps: RegisterDeps) {
         k_raw: { type: 'integer', default: 5, description: '检索的 raw 节点数' },
         k_synthesis: { type: 'integer', default: 3, description: '检索的 synthesis 节点数' },
         max_traverse_hops: { type: 'integer', default: 1, description: '图遍历跳数(0=不遍历)' },
-        save_as_synthesis: { type: 'boolean', default: true, description: '是否将分析结果保存为 synthesis 节点' },
+        save_as_synthesis: { type: 'boolean', default: true, description: '是否将分析结果保存为 synthesis 节点(通过 quality gate)' },
       },
       required: ['query'],
     },
     handler: async (args, ctx) => {
       const query = String(args.query);
-      const k_raw = Number(args.k_raw ?? 5);
-      const k_synthesis = Number(args.k_synthesis ?? 3);
+      const kRaw = Number(args.k_raw ?? 5);
+      const kSynth = Number(args.k_synthesis ?? 3);
       const maxHops = Number(args.max_traverse_hops ?? 1);
-      const saveAsSynthesis = args.save_as_synthesis !== false;
+      const svAsSynth = args.save_as_synthesis !== false;
 
       // Phase 1: Search
-      const searchResult = await search({ db, storage, embedding, index, params }, query, k_raw, k_synthesis, ctx);
+      const searchResult = await search({ db, storage, embedding, index, params }, query, kRaw, kSynth, ctx);
       const rawHits = (searchResult as any)?.raw ?? [];
       const synthHits = (searchResult as any)?.synthesis ?? [];
+      const allHits = [...rawHits.slice(0, 5), ...synthHits.slice(0, 3)];
 
-      // Phase 2: Read full content of top hits
-      const readNodes: Array<{ uuid: string; l0_summary: string; l1_overview: string; body: string; cluster_id: number | null }> = [];
-      for (const h of [...rawHits.slice(0, 5), ...synthHits.slice(0, 3)]) {
+      // Phase 2: Read content
+      const readNodes: Record<string, { l0: string; l1: string; body: string; cluster: number | null }> = {};
+      for (const h of allHits) {
         if (!h.uuid) continue;
         const node = storage.readNode(h.uuid);
-        if (node) {
-          readNodes.push({
-            uuid: node.uuid,
-            l0_summary: node.l0_summary,
-            l1_overview: node.l1_overview,
-            body: node.body?.slice(0, 3000) ?? '',
-            cluster_id: node.derived_state?.cluster_id ?? null,
-          });
-        }
+        if (node) readNodes[h.uuid] = { l0: node.l0_summary, l1: node.l1_overview, body: node.body?.slice(0, 3000) ?? '', cluster: node.derived_state?.cluster_id ?? null };
       }
 
-      // Phase 3: Traverse to find related nodes (if maxHops > 0)
-      const traversed: string[] = [];
+      // Phase 3: Traverse
+      const sourceUuids = Object.keys(readNodes);
+      const traversedUuids: string[] = [];
       if (maxHops > 0) {
-        for (const n of readNodes.slice(0, 3)) {
-          // Get wikilinks
-          const outLinks = db.prepare('SELECT target_uuid AS uuid FROM wikilinks WHERE source_uuid=?').all(n.uuid) as { uuid: string }[];
-          const inLinks = db.prepare('SELECT source_uuid AS uuid FROM wikilinks WHERE target_uuid=?').all(n.uuid) as { uuid: string }[];
-          for (const l of [...outLinks, ...inLinks]) {
-            if (!traversed.includes(l.uuid)) traversed.push(l.uuid);
-          }
+        for (const uid of sourceUuids.slice(0, 3)) {
+          const out = db.prepare('SELECT target_uuid AS uid FROM wikilinks WHERE source_uuid=?').all(uid) as { uid: string }[];
+          const inp = db.prepare('SELECT source_uuid AS uid FROM wikilinks WHERE target_uuid=?').all(uid) as { uid: string }[];
+          for (const r of [...out, ...inp]) { if (!traversedUuids.includes(r.uid)) traversedUuids.push(r.uid); }
         }
-        // Read traversed node summaries
-        for (const uuid of traversed.slice(0, 10)) {
-          const node = storage.readNode(uuid);
-          if (node) {
-            readNodes.push({
-              uuid: node.uuid,
-              l0_summary: node.l0_summary,
-              l1_overview: node.l1_overview,
-              body: node.body?.slice(0, 1000) ?? '',
-              cluster_id: node.derived_state?.cluster_id ?? null,
-            });
-          }
+        for (const uid of traversedUuids.slice(0, 10)) {
+          const node = storage.readNode(uid);
+          if (node && !readNodes[uid]) readNodes[uid] = { l0: node.l0_summary, l1: node.l1_overview, body: node.body?.slice(0, 1000) ?? '', cluster: node.derived_state?.cluster_id ?? null };
         }
       }
 
-      // Phase 4: Build a structured analysis
-      const sourceUuids = readNodes.map((n) => n.uuid);
-      const analysisContext = {
-        query,
-        total_sources: readNodes.length,
-        source_summaries: readNodes.map((n) => ({ uuid: n.uuid, l0: n.l0_summary, cluster: n.cluster_id })),
-        traversed_count: traversed.length,
-      };
-
-      // Phase 5: Optionally save as synthesis node
+      // Phase 4: Save as synthesis (through proper gating pipeline)
       let synthesisUuid: string | null = null;
-      if (saveAsSynthesis && readNodes.length > 0) {
+      let gateResult: string | null = null;
+      if (svAsSynth && sourceUuids.length > 0 && deps.synthesis) {
         try {
-          // Try to create a consolidation synthesis node
-          const candidate = {
-            source_uuids: sourceUuids.slice(0, 5), // Max 5 sources for synthesis
-            cluster_id: null as number | null,
-            subtype: 'consolidation' as const,
-            trigger: { type: 'explicit' as const, evidence: { reason: `deep_analyze: ${query}`, requested_by: ctx.agent_id } },
-          };
-          // Use generateConsolidation via synthesis service directly
-          const synthNode = storage.createNode({
-            node_type: 'synthesis',
-            body: `# 深度分析: ${query}\n\n## 引用来源\n${readNodes.map((n, i) => `${i + 1}. [[${n.uuid}]] - ${n.l0_summary}`).join('\n')}\n\n## 分析结果\n(分析结果通过 l1_overview 呈现)`,
-            l0_summary: `深度分析: ${query.slice(0, 60)}`,
-            l1_overview: `基于 ${readNodes.length} 个源节点的深度分析。关键发现:\n${readNodes.slice(0, 8).map((n) => `- ${n.l0_summary}`).join('\n')}`,
-            synthesis_subtype: 'consolidation',
-            sources: sourceUuids.slice(0, 10).map((u) => ({ uuid: u, role: 'primary' as const })),
-            trigger: { type: 'explicit', evidence: { reason: `deep_analyze: ${query}`, requested_by: ctx.agent_id } },
-            created_by: `agent:${ctx.agent_id}`,
-            created_by_run: ctx.agent_run_id,
+          const result = await deps.synthesis.generateExplicit({
+            source_uuids: sourceUuids.slice(0, 5),
+            subtype_hint: 'consolidation',
+            instruction: `Deep analysis query: ${query}. Synthesize findings from ${sourceUuids.length} related nodes.`,
+            bypass_pre_gates: true,
+            reason: `deep_analyze: ${query.slice(0, 100)}`,
+            ctx,
           });
-          synthesisUuid = synthNode.uuid;
+          if ('rejected' in result) {
+            gateResult = `rejected: ${result.reason}`;
+          } else {
+            synthesisUuid = result.node.uuid;
+            gateResult = 'created';
+          }
         } catch (err) {
-          // synthesis creation failed, still return the analysis
+          gateResult = `error: ${String(err)}`;
         }
       }
 
       return {
         query,
-        analysis: analysisContext,
-        sources: readNodes.map((n) => ({
-          uuid: n.uuid,
-          l0_summary: n.l0_summary,
-          body_excerpt: n.body.slice(0, 500),
-          cluster_id: n.cluster_id,
-        })),
+        total_sources: Object.keys(readNodes).length,
+        traversed: traversedUuids.length,
+        sources: Object.entries(readNodes).map(([uuid, n]) => ({ uuid, l0_summary: n.l0, cluster_id: n.cluster, body_excerpt: n.body.slice(0, 500) })),
         synthesis_uuid: synthesisUuid,
-        note: synthesisUuid ? 'Analysis saved as synthesis node. Use search_knowledge or read_node to access future queries.' : 'Analysis completed (not saved).',
+        synthesis_gate: gateResult,
+        note: synthesisUuid ? 'Analysis saved with quality gate. Embeddings generated by librarian.' : gateResult ? `Synthesis rejected by gate: ${gateResult}` : 'Not saved.',
+      };
+    },
+  });
+
+  // ===== Agent 即插即用工具 v2.2 =====
+
+  registry.register({
+    name: 'agent_onboarding',
+    description: 'Agent 首次接入的着陆页。返回 KB 全局快照、核心知识图谱、最近活动、待处理问题和操作指南。任何外部 Agent 接入后应先调此工具了解 KB 全貌。',
+    permission_tag: 'read',
+    parameters: { type: 'object', properties: {
+      include_god_nodes: { type: 'boolean', default: true },
+      include_recent_reflections: { type: 'boolean', default: true },
+      include_flag_summary: { type: 'boolean', default: true },
+      god_nodes_top: { type: 'integer', default: 8 },
+      reflections_limit: { type: 'integer', default: 5 },
+    }},
+    handler: async (args) => {
+      const out: Record<string, unknown> = {};
+      
+      // 1. KB health snapshot
+      const counts = storage.countByStatus();
+      const clusterCount = storage.countActiveClusters();
+      out.kb_snapshot = {
+        version: '2.1',
+        nodes_total: counts.total,
+        nodes_raw: counts.raw,
+        nodes_synthesis: counts.synthesis,
+        nodes_reflection: counts.reflection,
+        pending_embed: counts.pending_embed,
+        clusters: clusterCount,
+      };
+
+      // 2. Cluster map
+      const clusterRows = db.prepare("SELECT cluster_id, member_count, description, hub_uuid FROM clusters WHERE status='active' ORDER BY member_count DESC").all() as { cluster_id: number; member_count: number; description: string | null; hub_uuid: string | null }[];
+      out.cluster_map = clusterRows.map((c) => ({
+        id: c.cluster_id,
+        members: c.member_count,
+        description: c.description ?? '(no description)',
+        hub: c.hub_uuid?.slice(0, 8) ?? null,
+      }));
+
+      // 3. God nodes
+      if (args.include_god_nodes !== false) {
+        const top = Number(args.god_nodes_top ?? 8);
+        const input = loadInsightInput(db);
+        out.god_nodes = godNodes(input, top);
+      }
+
+      // 4. Recent reflections
+      if (args.include_recent_reflections !== false) {
+        const limit = Number(args.reflections_limit ?? 5);
+        const rows = db.prepare("SELECT uuid, l0_summary, created_at, synthesis_subtype FROM nodes WHERE node_type='reflection' AND status='active' ORDER BY created_at DESC LIMIT ?").all(limit) as { uuid: string; l0_summary: string; created_at: string; synthesis_subtype: string | null }[];
+        out.recent_reflections = rows.map((r) => ({ uuid: r.uuid, summary: r.l0_summary, subtype: r.synthesis_subtype, created: r.created_at?.slice(0, 10) }));
+      }
+
+      // 5. Flag queue summary
+      if (args.include_flag_summary !== false && deps.flagQueue) {
+        const cts = deps.flagQueue.countByStatus();
+        out.flag_queue = { pending: cts.pending, addressed: cts.addressed, dismissed: cts.dismissed };
+      }
+
+      // 6. Quick-start guide
+      out.quick_start = {
+        search: 'Use search_knowledge with your question to find relevant nodes.',
+        deep_analyze: 'Use deep_analyze to search + read + traverse + synthesize in one call.',
+        read: 'Use read_node with a UUID to get full content.',
+        traverse: 'Use traverse_graph from a UUID to explore related nodes.',
+        reflect: 'After solving a problem, call create_reflection to store your CoT trace.',
+        note: 'All tools listed via /api/agent/list_tools (POST with agent_id + api_key).',
+      };
+
+      return out;
+    },
+  });
+
+  registry.register({
+    name: 'suggest_context',
+    description: '给定 Agent 当前任务描述，自动搜索 KB 并建议相关上下文：相关节点、过去的 reflection、同簇的开放问题。帮助 Agent 在思考前快速获取背景知识。',
+    permission_tag: 'read',
+    parameters: {
+      type: 'object',
+      properties: {
+        task: { type: 'string', description: '当前任务描述(越具体越好)' },
+        k: { type: 'integer', default: 8, description: '返回的建议数' },
+        include_reflections: { type: 'boolean', default: true },
+        include_flags: { type: 'boolean', default: false },
+      },
+      required: ['task'],
+    },
+    handler: async (args, ctx) => {
+      const task = String(args.task);
+      const k = Number(args.k ?? 8);
+      
+      // Search for related nodes
+      const searchResult = await search({ db, storage, embedding, index, params }, task, k, Math.min(k, 5), ctx);
+      const rawHits = (searchResult as any)?.raw ?? [];
+      const synthHits = (searchResult as any)?.synthesis ?? [];
+      
+      // Get related cluster IDs
+      const clusterIds = new Set<number>();
+      const seen = new Set<string>();
+      const suggestions: Array<{ type: string; uuid: string; summary: string }> = [];
+      
+      for (const h of [...rawHits, ...synthHits]) {
+        if (!h.uuid || seen.has(h.uuid)) continue;
+        seen.add(h.uuid);
+        const node = storage.readNode(h.uuid);
+        if (node && node.derived_state?.cluster_id) clusterIds.add(node.derived_state.cluster_id);
+        suggestions.push({ type: 'node', uuid: h.uuid, summary: h.l0_summary || node?.l0_summary || '' });
+      }
+      
+      // Search for related reflections
+      if (args.include_reflections !== false) {
+        const reflRows = db.prepare("SELECT uuid, l0_summary FROM nodes WHERE node_type='reflection' AND status='active' ORDER BY created_at DESC LIMIT 20").all() as { uuid: string; l0_summary: string }[];
+        for (const r of reflRows) {
+          if (seen.has(r.uuid)) continue;
+          suggestions.push({ type: 'reflection', uuid: r.uuid, summary: r.l0_summary });
+        }
+      }
+      
+      // Surface open flags in related clusters
+      if (args.include_flags && deps.flagQueue && clusterIds.size > 0) {
+        for (const cid of [...clusterIds].slice(0, 3)) {
+          const flags = deps.flagQueue.list({ cluster_id: cid, status: 'pending', limit: 3 });
+          for (const f of flags) {
+            suggestions.push({ type: 'flag', uuid: f.flag_id, summary: `[${f.flag_type}] ${f.description?.slice(0, 80)}` });
+          }
+        }
+      }
+      
+      return {
+        task,
+        suggestions: suggestions.slice(0, k),
+        related_clusters: [...clusterIds],
+        hint: 'Use read_node to explore suggestions, deep_analyze for comprehensive analysis.',
+      };
+    },
+  });
+
+  registry.register({
+    name: 'list_reflections',
+    description: '列出所有 reflection 节点(Agent 的元认知痕迹)，按创建时间倒序。可过滤 subtype。用于检查之前的思考是否有可复用的 insight。',
+    permission_tag: 'read',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: { type: 'integer', default: 20 },
+        subtype: { type: 'string', enum: ['decision', 'failure_analysis', 'retrieval_strategy', 'plan', 'critique', 'postmortem'] },
+        since: { type: 'string', description: 'ISO 日期，只返回此日期之后创建的' },
+      },
+    },
+    handler: async (args) => {
+      const limit = Number(args.limit ?? 20);
+      let sql = "SELECT uuid, l0_summary, synthesis_subtype, created_at FROM nodes WHERE node_type='reflection' AND status='active'";
+      const params: Array<string | number> = [];
+      if (args.subtype) { sql += ' AND synthesis_subtype=?'; params.push(String(args.subtype)); }
+      if (args.since) { sql += ' AND created_at>=?'; params.push(String(args.since)); }
+      sql += ' ORDER BY created_at DESC LIMIT ?'; params.push(limit);
+      const rows = db.prepare(sql).all(...params) as { uuid: string; l0_summary: string; synthesis_subtype: string | null; created_at: string }[];
+      return {
+        reflections: rows.map((r) => ({ uuid: r.uuid, summary: r.l0_summary, subtype: r.synthesis_subtype, created: r.created_at?.slice(0, 16) })),
+        total: rows.length,
       };
     },
   });
